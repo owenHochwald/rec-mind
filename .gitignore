@@ -36,3 +36,5 @@ build/
 # Logs
 *.log
 .env
+*venv
+*.venv
