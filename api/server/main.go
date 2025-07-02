@@ -5,14 +5,16 @@ import (
 	"github.com/owenHochwald/rec-mind-api/config"
 	"github.com/owenHochwald/rec-mind-api/controllers"
 	"github.com/owenHochwald/rec-mind-api/database"
+	"github.com/owenHochwald/rec-mind-api/mq"
 )
 
 func main() {
 
 	config.LoadEnv()
 	db := database.InitDB()
-
 	defer db.Close()
+
+	mq.InitRabbitMQ()
 
 	r := gin.Default()
 

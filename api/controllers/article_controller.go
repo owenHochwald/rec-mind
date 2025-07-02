@@ -2,11 +2,14 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"github.com/owenHochwald/rec-mind-api/models"
+	"github.com/owenHochwald/rec-mind-api/mq"
 )
 
 // adds an article from JSON recieved in the request body to the database
@@ -30,6 +33,13 @@ func UploadArticle(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert article"})
 			return
 		}
+
+		jsonData, _ := json.Marshal(newArticle)
+		err = mq.PublishEvent(string(jsonData))
+		if err != nil {
+			log.Println("Failed to publish message:", err)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Article uploaded successfully"})
 	}
 }
