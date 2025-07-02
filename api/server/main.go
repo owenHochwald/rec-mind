@@ -1,14 +1,26 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/owenHochwald/rec-mind-api/config"
+	"github.com/owenHochwald/rec-mind-api/database"
 )
 
-func uploadArticle(c *gin.Context)      {}
-func handleInteraction(c *gin.Context)  {}
+
+func uploadArticle(c *gin.Context) {}
+func handleInteraction(c *gin.Context) {}
 func getRecommendations(c *gin.Context) {}
 
+func init() {
+	config.LoadEnv()
+	database.InitDB()
+}
+
 func main() {
+	fmt.Println("main.go is running")
+
 	r := gin.Default()
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
