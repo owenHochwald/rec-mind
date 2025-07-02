@@ -9,32 +9,32 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var DB *sql.DB
+func InitDB() *sql.DB {
+	requiredVars := []string{"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
+	for _, v := range requiredVars {
+		if os.Getenv(v) == "" {
+			log.Fatalf("Missing required environment variable: %s", v)
+		}
+	}
 
-func InitDB() {
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
+	psqlInfo := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+	)
 
-	fmt.Println("ENV VARS:", host, port, user, password, dbname)
-	
-
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-	fmt.Println("Connecting with:", psqlInfo)
-
-
-	var err error
-	DB, err = sql.Open("postgres", psqlInfo)
+	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Fatal("Failed to open database connection:", err)
+		log.Fatalf("Error opening DB connection: %v", err)
 	}
 
-	if err = DB.Ping(); err != nil {
-		log.Fatal("Failed to connect to database:", err)
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Error connecting to DB: %v", err)
 	}
 
-	log.Println("Database connection successful")
+	log.Println("✅ Successfully connected to PostgreSQL")
+	return db
 }
