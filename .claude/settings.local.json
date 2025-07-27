@@ -7,7 +7,8 @@
       "Bash(go test:*)",
       "Bash(go build:*)",
       "Bash(cp:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(python:*)"
     ],
     "deny": []
   }
