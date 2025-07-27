@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     
     # Pinecone Configuration
     pinecone_api_key: str = Field(..., description="Pinecone API key")
-    pinecone_environment: str = Field(default="us-west1-gcp", description="Pinecone environment")
+    pinecone_environment: str = Field(default="us-east-1", description="Pinecone environment")
+    pinecone_host: Optional[str] = Field(default=None, description="Pinecone index host URL")
     pinecone_index_name: str = Field(default="news-articles", description="Pinecone index name")
     
     # Service Configuration

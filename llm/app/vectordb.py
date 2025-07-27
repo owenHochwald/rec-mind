@@ -1,4 +1,4 @@
-"""Pinecone vector database operations with async support."""
+"""Pinecone vector database operations with direct host connection."""
 
 import time
 from typing import List, Dict, Any, Optional
@@ -22,48 +22,47 @@ settings = get_settings()
 
 
 class VectorDBService:
-    """Service for Pinecone vector database operations."""
+    """Service for Pinecone vector database operations using direct host connection."""
     
     def __init__(self):
         self.api_key = settings.pinecone_api_key
         self.environment = settings.pinecone_environment
+        self.host = settings.pinecone_host
         self.index_name = settings.pinecone_index_name
         self.dimension = settings.embedding_dimensions
         self._index = None
         self._initialized = False
     
     async def _initialize(self):
-        """Initialize Pinecone connection."""
+        """Initialize Pinecone connection using modern SDK approach."""
         if self._initialized:
             return
             
         try:
-            logger.info("Initializing Pinecone connection", environment=self.environment)
+            logger.info("Initializing Pinecone connection", 
+                       index_name=self.index_name,
+                       host_configured=bool(self.host))
             
-            pinecone.init(
-                api_key=self.api_key,
-                environment=self.environment
-            )
+            if not self.host:
+                raise ValueError("PINECONE_HOST must be configured for direct connection")
             
-            # Check if index exists, create if it doesn't
-            if self.index_name not in pinecone.list_indexes():
-                logger.info("Creating Pinecone index", index_name=self.index_name)
-                pinecone.create_index(
-                    name=self.index_name,
-                    dimension=self.dimension,
-                    metric="cosine"
-                )
-                # Wait for index to be ready
-                while not pinecone.describe_index(self.index_name).status['ready']:
-                    time.sleep(1)
+            logger.info("Connecting to Pinecone index", 
+                       host=self.host, 
+                       index_name=self.index_name)
             
-            self._index = pinecone.Index(self.index_name)
+            # Initialize Pinecone client with host configuration (modern SDK v7+ approach)
+            pc = pinecone.Pinecone(api_key=self.api_key, host=self.host)
+            
+            # Connect to index by name - host is already configured in client
+            self._index = pc.Index(self.index_name)
+            
             self._initialized = True
-            
-            logger.info("Pinecone initialized successfully", index_name=self.index_name)
+            logger.info("Pinecone connection established successfully", 
+                       index_name=self.index_name,
+                       host=self.host)
             
         except Exception as e:
-            logger.error("Failed to initialize Pinecone", error=str(e))
+            logger.error("Failed to initialize Pinecone connection", error=str(e))
             raise
     
     @retry(
@@ -244,7 +243,7 @@ class VectorDBService:
             
             await self._initialize()
             
-            # Get basic index stats as health check
+            # Simple health check by getting index stats
             stats = await self.get_index_stats()
             
             response_time = time.time() - start_time

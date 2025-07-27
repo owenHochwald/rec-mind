@@ -8,7 +8,8 @@
       "Bash(go build:*)",
       "Bash(cp:*)",
       "Bash(timeout:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
