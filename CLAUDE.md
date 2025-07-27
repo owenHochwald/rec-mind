@@ -6,19 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a distributed news article recommendation system built in Go that demonstrates RAG (Retrieval-Augmented Generation), distributed systems architecture, and modern backend technologies. The system scrapes news articles, generates embeddings, and provides real-time semantic similarity recommendations via WebSocket streaming.
 
-Tech Stack: Go (for handling the backend), PostgreSQL (for storing articles), Redis (for caching requests), Pinecone (for RAG app), RabbitMQ (for distributed system), WebSocket (for communication with pinecone / postgresql), Prometheus (for analysis), docker, AWS EC2
+Tech Stack: Go (for handling the backend), PostgreSQL (for storing articles), Redis (for caching requests), Pinecone (for RAG app), RabbitMQ (for distributed system), WebSocket (for communication with pinecone / postgresql), Prometheus (for analysis), docker, AWS EC2, Python (for the rag llm service, see /llm)
 ## Architecture
 
 The system follows a distributed microservices architecture with async processing:
 
-User Request → Go API → Redis Cache Check → RabbitMQ Queue → RAG Workers → Pinecone Vector Search → WebSocket Response
+User Request → Go API → Redis Cache Check → RabbitMQ Queue → Go RAG Workers → Python ML Service → Pinecone Vector Search → WebSocket Response
 
-- API Server: Gin-based REST API with WebSocket support for real-time recommendations
-- RAG Workers: Go workers that consume recommendation jobs and perform vector similarity search
-- Data Pipeline: Article scraper and embedding generation service
+## Core Services 
+- Go API Server: Gin-based REST API with WebSocket support for real-time recommendations
+- Go RAG Workers: Workers that consume recommendation jobs and call Python ML service
+- Python ML Service: FastAPI service handling embeddings generation and Pinecone operations
+- Go Data Pipeline: Article scraper that publishes to RabbitMQ for ML processing
 - Caching Layer: Redis for API responses and job status
-- Vector Database: Pinecone for semantic similarity search
-- Message Queue: RabbitMQ for async job processing
+- Message Queue: RabbitMQ for async job processing between services
 
 ### Key Components
 
@@ -32,8 +33,10 @@ User Request → Go API → Redis Cache Check → RabbitMQ Queue → RAG Workers
 ## Current Implementation Status
 
 - [X] Project foundation and database schema
+- [X] Python ML service with Pinecone integration
 - [ ] Article scraping and data ingestion
 - [ ] OpenAI embeddings generation
+- [ ] Go-to-Python service communication
 - [X] Pinecone vector database integration
 - [ ] HTTP API server with caching
 - [ ] RabbitMQ async job processing
@@ -45,6 +48,7 @@ User Request → Go API → Redis Cache Check → RabbitMQ Queue → RAG Workers
 ## Development Commands
 
 The project is organized into sequential development tickets (see project documentation). Each ticket builds incrementally toward a complete system.
+
 
 ### Building and Running
 - `make dev` - Run without building binary (recommended for development)
@@ -118,13 +122,29 @@ Current implementation:
 ```
 
 ## Message Queue Patterns
+### Article Processing Flow
+1. Go controller recieves news article data from request body → stores in PostgreSQL → publishes to article_processing queue
+2. Python ML service consumes from queue → generates embeddings → uploads to Pinecone
+3. Confirms processing completion back to queue
 ### Recommendation Job Flow
-1. User clicks article → API publishes job to recommendation_jobs queue
-2. RAG worker consumes job → performs Pinecone vector search
-3. Worker enriches results with PostgreSQL data → stores in Redis
-4. Results streamed to user via WebSocket connection
+User clicks article → Go API publishes job to recommendation_jobs queue
+Go RAG worker consumes job → calls Python ML service via HTTP
+Python service performs Pinecone vector search → returns results to Go
+Go worker enriches results with PostgreSQL data → stores in Redis
+Results streamed to user via WebSocket connection
 
-### Message Structure 
+### Article Processing Message
+```json
+{
+  "article_id": "uuid",
+  "title": "string",
+  "content": "string",
+  "category": "string",
+  "created_at": "timestamp"
+}
+```
+
+### Recommendation Job Message Structure 
 ```json
     {
     "job_id": "uuid",
@@ -135,19 +155,32 @@ Current implementation:
     }
 ```
 
-## Vector Search Implementation
-### Pinecone Integration
+## Python ML Service API
+### Endpoints
+- POST /embeddings/generate - Generate embeddings for article content
+- POST /embeddings/upload - Upload embeddings to Pinecone
+- POST /search/similar - Find similar articles via vector search
+- GET /health - ML service health check
 
-- Index Dimension: 1536 (OpenAI text-embedding-3-small)
-- Similarity Metric: Cosine similarity
-- Top-K Results: 5 recommendations per query
-- Score Threshold: 0.7 minimum similarity
+### Request/ REsponse Examples
+```python
+# Generate embeddings
+POST /embeddings/generate
+{
+  "article_id": "uuid",
+  "text": "article title and content"
+}
+# Response: {"embeddings": [0.1, 0.2, ...], "dimensions": 1536}
 
-### Embedding Strategy
-
-- Combine article title + first 500 words of content
-- Generate embeddings via OpenAI API with batching
-- Store in Pinecone with metadata: article_id, title, category, published_at
+# Search similar articles  
+POST /search/similar
+{
+  "article_id": "uuid",
+  "top_k": 5,
+  "score_threshold": 0.7
+}
+# Response: {"results": [{"id": "uuid", "score": 0.85, "metadata": {...}}]}
+```
 
 ## WebSocket Implementation
 ### Real-time Features
