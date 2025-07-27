@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(go get:*)",
+      "Bash(make test:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(cp:*)",
+      "Bash(timeout:*)"
+    ],
+    "deny": []
+  }
+}

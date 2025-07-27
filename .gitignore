@@ -38,3 +38,5 @@ build/
 .env
 *venv
 *.venv
+api/test_endpoints.sh
+api/.env.example
