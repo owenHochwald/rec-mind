@@ -52,6 +52,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/ml/health": {
+            "get": {
+                "description": "Check if the Python ML service is available and ready for embedding generation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Check ML service health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ml_service_healthy": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                },
+                                "ml_service_healthy": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/recommend": {
             "get": {
                 "description": "Get personalized article recommendations (placeholder endpoint)",
@@ -79,7 +121,7 @@ const docTemplate = `{
         },
         "/api/upload": {
             "post": {
-                "description": "Upload a new article to the system and publish it to the message queue for ML processing",
+                "description": "Upload a new article to the system and automatically generate embeddings using the Python ML service",
                 "consumes": [
                     "application/json"
                 ],
@@ -89,7 +131,7 @@ const docTemplate = `{
                 "tags": [
                     "articles"
                 ],
-                "summary": "Upload a new article",
+                "summary": "Upload a new article with ML processing",
                 "parameters": [
                     {
                         "description": "Article data",
@@ -103,6 +145,99 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "content": {
+                                    "type": "string"
+                                },
+                                "published_at": {
+                                    "type": "string"
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Processing mode: 'sync' or 'async' (default: async)",
+                        "name": "processing",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "article": {
+                                    "type": "object"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "processing_mode": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/upload/legacy": {
+            "post": {
+                "description": "Upload a new article to the system without ML processing (legacy endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "articles"
+                ],
+                "summary": "Upload a new article (legacy)",
+                "parameters": [
+                    {
+                        "description": "Article data",
+                        "name": "article",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "category": {
+                                    "type": "string"
+                                },
+                                "content": {
+                                    "type": "string"
+                                },
+                                "published_at": {
                                     "type": "string"
                                 },
                                 "title": {

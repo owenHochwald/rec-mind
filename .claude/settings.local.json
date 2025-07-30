@@ -14,7 +14,8 @@
       "Bash(go install:*)",
       "Bash(swag init:*)",
       "Bash(touch:*)",
-      "Bash(go mod:*)"
+      "Bash(go mod:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

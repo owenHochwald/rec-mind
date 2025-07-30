@@ -1,16 +1,19 @@
 package controllers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/owenHochwald/rec-mind-api/internal/database"
 	"github.com/owenHochwald/rec-mind-api/internal/repository"
+	"github.com/owenHochwald/rec-mind-api/internal/services"
 	"github.com/owenHochwald/rec-mind-api/models"
 	"github.com/owenHochwald/rec-mind-api/mq"
 )
@@ -69,6 +72,69 @@ func UploadArticleV2(repo repository.ArticleRepository) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, article.ToResponse())
+	}
+}
+
+// UploadArticleV3 creates a new article with ML embedding generation
+func UploadArticleV3(articleService *services.ArticleService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req database.CreateArticleRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Check processing mode from query parameter
+		processingMode := c.DefaultQuery("processing", "async")
+
+		switch processingMode {
+		case "sync":
+			// Synchronous processing - wait for embedding generation
+			result, err := articleService.CreateArticleWithEmbedding(c.Request.Context(), &req)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
+				return
+			}
+
+			// Return comprehensive result
+			response := gin.H{
+				"article": result.Article.ToResponse(),
+				"processing_time": result.ProcessingTime.String(),
+				"embedding_generated": result.EmbeddingResult != nil,
+			}
+
+			if result.EmbeddingResult != nil {
+				response["embedding_summary"] = gin.H{
+					"tokens_used": result.EmbeddingResult.Summary.TotalTokens,
+					"processing_time": result.EmbeddingResult.Summary.ProcessingTime,
+					"vectors_uploaded": len(result.EmbeddingResult.Uploads),
+				}
+			}
+
+			if result.Error != "" {
+				response["warning"] = result.Error
+			}
+
+			c.JSON(http.StatusCreated, response)
+
+		case "async":
+			// Asynchronous processing - return immediately, generate embeddings in background
+			article, err := articleService.CreateArticleWithAsyncEmbedding(c.Request.Context(), &req)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
+				return
+			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"article": article.ToResponse(),
+				"message": "Article created successfully. Embedding generation is processing in the background.",
+				"processing_mode": "async",
+			})
+
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid processing mode. Use 'sync' or 'async'"})
+		}
 	}
 }
 
@@ -168,6 +234,28 @@ func DeleteArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Article deleted successfully"})
+	}
+}
+
+// CheckMLHealth checks the health of the ML service
+func CheckMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		err := articleService.CheckMLServiceHealth(ctx)
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"ml_service_healthy": false,
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ml_service_healthy": true,
+			"message": "ML service is healthy and ready for embedding generation",
+		})
 	}
 }
 

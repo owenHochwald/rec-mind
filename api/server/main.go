@@ -25,7 +25,9 @@ import (
 	"github.com/owenHochwald/rec-mind-api/controllers"
 	"github.com/owenHochwald/rec-mind-api/handlers"
 	"github.com/owenHochwald/rec-mind-api/internal/database"
+	"github.com/owenHochwald/rec-mind-api/internal/mlclient"
 	"github.com/owenHochwald/rec-mind-api/internal/repository"
+	"github.com/owenHochwald/rec-mind-api/internal/services"
 	"github.com/owenHochwald/rec-mind-api/mq"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -52,6 +54,12 @@ func main() {
 	// Initialize repository
 	articleRepo := repository.NewArticleRepository(db.Pool)
 
+	// Initialize ML client
+	mlClient := mlclient.NewMLClient()
+
+	// Initialize article service with ML integration
+	articleService := services.NewArticleService(articleRepo, mlClient)
+
 	// Initialize message queue
 	mq.InitRabbitMQ()
 
@@ -67,9 +75,11 @@ func main() {
 	r.GET("/health/python", handlers.CheckPythonHealth())
 
 	// API endpoints
-	r.POST("/api/upload", uploadArticle(articleRepo))
+	r.POST("/api/upload", uploadArticleWithML(articleService))
+	r.POST("/api/upload/legacy", uploadArticle(articleRepo))
 	r.POST("/api/interact", handleInteraction())
 	r.GET("/api/recommend", getRecommendations())
+	r.GET("/api/ml/health", checkMLHealth(articleService))
 
 	// Article management endpoints
 	r.GET("/api/v1/articles", listArticles(articleRepo))
@@ -82,19 +92,47 @@ func main() {
 	r.Run(":8080")
 }
 
-// uploadArticle handles article upload with message queue publishing
-// @Summary Upload a new article
-// @Description Upload a new article to the system and publish it to the message queue for ML processing
+// uploadArticleWithML handles article upload with ML embedding generation
+// @Summary Upload a new article with ML processing
+// @Description Upload a new article to the system and automatically generate embeddings using the Python ML service
 // @Tags articles
 // @Accept json
 // @Produce json
-// @Param article body object{title=string,content=string,url=string,category=string} true "Article data"
-// @Success 201 {object} object{message=string,article_id=string}
+// @Param article body object{title=string,content=string,url=string,category=string,published_at=string} true "Article data"
+// @Param processing query string false "Processing mode: 'sync' or 'async' (default: async)"
+// @Success 201 {object} object{article=object,message=string,processing_mode=string}
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
 // @Router /api/upload [post]
+func uploadArticleWithML(articleService *services.ArticleService) gin.HandlerFunc {
+	return controllers.UploadArticleV3(articleService)
+}
+
+// uploadArticle handles legacy article upload with message queue publishing only
+// @Summary Upload a new article (legacy)
+// @Description Upload a new article to the system without ML processing (legacy endpoint)
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Param article body object{title=string,content=string,url=string,category=string,published_at=string} true "Article data"
+// @Success 201 {object} object{message=string,article_id=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /api/upload/legacy [post]
 func uploadArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 	return controllers.UploadArticleV2(repo)
+}
+
+// checkMLHealth checks the health of the ML service
+// @Summary Check ML service health
+// @Description Check if the Python ML service is available and ready for embedding generation
+// @Tags health
+// @Produce json
+// @Success 200 {object} object{ml_service_healthy=bool,message=string}
+// @Failure 503 {object} object{ml_service_healthy=bool,error=string}
+// @Router /api/ml/health [get]
+func checkMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
+	return controllers.CheckMLHealth(articleService)
 }
 
 // handleInteraction handles user interactions (placeholder)
