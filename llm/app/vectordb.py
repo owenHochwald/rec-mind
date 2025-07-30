@@ -1,12 +1,12 @@
 """Simplified Pinecone vector database operations."""
 
 import time
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from uuid import UUID
 
 import structlog
 from pinecone import Pinecone, ServerlessSpec
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .config import get_settings
 from .models import (
@@ -248,91 +248,6 @@ class VectorDBService:
                 "error": str(e),
                 "index_name": self.index_name
             }
-    
-    async def test_connection(self) -> Dict[str, Any]:
-        """Test Pinecone connection with basic operations."""
-        try:
-            start_time = time.time()
-            test_results = {}
-            
-            # Test 1: Get index and stats
-            logger.info("Testing Pinecone connection")
-            index = self._get_index()
-            test_results["connection"] = "success"
-            
-            stats = await self.get_index_stats()
-            test_results["index_stats"] = {
-                "status": "success",
-                "total_vectors": stats["total_vectors"],
-                "dimension": stats["dimension"]
-            }
-            
-            # Test 2: Basic operations with dummy data
-            test_vector_id = "test-connection-vector"
-            test_vector = [0.1] * self.dimension
-            
-            try:
-                # Test upsert
-                logger.info("Testing vector operations")
-                upsert_result = index.upsert([{
-                    "id": test_vector_id,
-                    "values": test_vector,
-                    "metadata": {"test": True, "timestamp": time.time()}
-                }])
-                test_results["upsert"] = {
-                    "status": "success",
-                    "count": upsert_result.upserted_count
-                }
-                
-                # Test fetch
-                fetch_result = index.fetch([test_vector_id])
-                test_results["fetch"] = {
-                    "status": "success" if fetch_result.vectors else "failed",
-                    "found": len(fetch_result.vectors)
-                }
-                
-                # Test query
-                query_result = index.query(
-                    vector=test_vector,
-                    top_k=1,
-                    include_metadata=True
-                )
-                test_results["query"] = {
-                    "status": "success",
-                    "matches": len(query_result.matches)
-                }
-                
-                # Cleanup
-                index.delete([test_vector_id])
-                test_results["cleanup"] = "success"
-                
-            except Exception as op_error:
-                test_results["operations"] = {
-                    "status": "failed",
-                    "error": str(op_error)
-                }
-            
-            total_time = time.time() - start_time
-            overall_status = "success" if all(
-                r.get("status", r) == "success" 
-                for r in test_results.values()
-            ) else "partial"
-            
-            return {
-                "overall_status": overall_status,
-                "test_duration": total_time,
-                "index_name": self.index_name,
-                "tests": test_results
-            }
-            
-        except Exception as e:
-            logger.error("Pinecone connection test failed", error=str(e))
-            return {
-                "overall_status": "failed",
-                "error": str(e),
-                "index_name": self.index_name
-            }
-
 
 # Global service instance
 vectordb_service = VectorDBService()

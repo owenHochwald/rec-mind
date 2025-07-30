@@ -3,18 +3,16 @@
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Dict, Any
 
 import structlog
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .models import (
-    EmbeddingRequest, EmbeddingResponse,
     BatchEmbeddingRequest, BatchEmbeddingResponse,
     PineconeUploadRequest, PineconeSearchRequest, PineconeSearchResponse,
     HealthStatus, DependencyHealth, DetailedHealthResponse,
@@ -178,16 +176,16 @@ async def detailed_health_check(
         dependencies=dependencies,
         uptime=time.time() - SERVICE_START_TIME
     )
+    
 
-
-@app.post("/embeddings/generate", response_model=EmbeddingResponse)
-@endpoint_error_handler("embedding generation")
-async def generate_embedding(
-    request: EmbeddingRequest,
-    embeddings_svc: EmbeddingsService = Depends(get_embeddings_service)
+@app.get("/index/stats")
+@endpoint_error_handler("index statistics retrieval")
+async def get_index_stats(
+    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
 ):
-    """Generate embedding for a single text."""
-    return await embeddings_svc.generate_embedding(request)
+    """Get Pinecone index statistics."""
+    return await vectordb_svc.get_index_stats()
+
 
 
 @app.post("/embeddings/batch", response_model=BatchEmbeddingResponse)
@@ -201,16 +199,6 @@ async def generate_batch_embeddings(
     result = await embeddings_svc.generate_batch_embeddings(request)
     logger.info("Batch embeddings generated successfully", batch_size=len(result.results))
     return result
-
-
-@app.post("/embeddings/upload")
-@endpoint_error_handler("embedding upload")
-async def upload_embedding(
-    request: PineconeUploadRequest,
-    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
-):
-    """Upload embedding vector to Pinecone."""
-    return await vectordb_svc.upload_embedding(request)
 
 
 @app.post("/search/similar", response_model=PineconeSearchResponse)
@@ -229,60 +217,48 @@ async def search_similar_articles(
     return result
 
 
-@app.get("/index/stats")
-@endpoint_error_handler("index statistics retrieval")
-async def get_index_stats(
-    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
-):
-    """Get Pinecone index statistics."""
-    return await vectordb_svc.get_index_stats()
-
-
-@app.get("/test/pinecone")
-@endpoint_error_handler("Pinecone connection test")
-async def test_pinecone_connection(
-    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
-):
-    """Test Pinecone connection and basic operations."""
-    return await vectordb_svc.test_connection()
-
-
-@app.post("/embeddings/generate-and-upload")
-@endpoint_error_handler("embedding generation and upload")
-async def generate_and_upload_embedding(
-    request: EmbeddingRequest,
+@app.post("/embeddings/batch-and-upload", response_model=BatchEmbeddingResponse)
+@endpoint_error_handler("batch embedding generation and upload")
+async def batch_generate_and_upload(
+    request: BatchEmbeddingRequest,
     embeddings_svc: EmbeddingsService = Depends(get_embeddings_service),
     vectordb_svc: VectorDBService = Depends(get_vectordb_service)
 ):
-    """Generate embedding and upload to Pinecone in one step."""
-    # Generate embedding
-    embedding_response = await embeddings_svc.generate_embedding(request)
+    """Generate batch embeddings and upload all to Pinecone."""
+    # Generate batch embeddings
+    logger.info("Processing batch embedding and upload", batch_size=len(request.items))
+    embedding_response = await embeddings_svc.generate_batch_embeddings(request)
     
-    # Upload to Pinecone
-    upload_request = PineconeUploadRequest(
-        article_id=request.article_id,
-        embeddings=embedding_response.embeddings,
-        metadata={
-            "title": request.text[:100],  # First 100 chars as title
-            "model": embedding_response.model,
-            "dimensions": embedding_response.dimensions
-        }
+    # Upload all embeddings to Pinecone
+    upload_results = []
+    for result in embedding_response.results:
+        upload_request = PineconeUploadRequest(
+            article_id=result.article_id,
+            embeddings=result.embeddings,
+            metadata={
+                "model": result.model,
+                "dimensions": result.dimensions,
+                "tokens_used": result.tokens_used
+            }
+        )
+        upload_result = await vectordb_svc.upload_embedding(upload_request)
+        upload_results.append(upload_result)
+    
+    logger.info(
+        "Batch processing completed", 
+        embeddings_generated=len(embedding_response.results),
+        vectors_uploaded=len(upload_results)
     )
     
-    upload_response = await vectordb_svc.upload_embedding(upload_request)
-    
     return {
-        "article_id": str(request.article_id),
-        "embedding": {
-            "dimensions": embedding_response.dimensions,
-            "model": embedding_response.model,
-            "tokens_used": embedding_response.tokens_used
-        },
-        "upload": upload_response,
-        "status": "completed"
+        "embeddings": embedding_response,
+        "uploads": upload_results,
+        "summary": {
+            "total_processed": len(embedding_response.results),
+            "total_tokens": embedding_response.total_tokens,
+            "processing_time": embedding_response.processing_time
+        }
     }
-
-
 
 
 if __name__ == "__main__":

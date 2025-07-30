@@ -151,41 +151,6 @@ class EmbeddingsService:
             logger.error("Batch embedding failed with LangChain", error=str(e))
             raise
     
-    def create_document(self, article_id: UUID, text: str, metadata: Dict[str, Any] = None) -> Document:
-        """Create a LangChain Document object for article processing."""
-        doc_metadata = {
-            "article_id": str(article_id),
-            "source": f"article_{article_id}",
-            **(metadata or {})
-        }
-        
-        return Document(
-            page_content=text,
-            metadata=doc_metadata
-        )
-    
-    def generate_article_id(self, article_id: UUID, chunk_num: int = 0) -> str:
-        """Generate standardized ID for vector storage following LangChain pattern."""
-        return f"article_{article_id}#chunk_{chunk_num}"
-    
-    async def embed_documents_for_vectorstore(self, articles: List[Dict[str, Any]]) -> List[Document]:
-        """Convert articles to LangChain Documents ready for vector store upload."""
-        documents = []
-        
-        for article in articles:
-            doc = self.create_document(
-                article_id=article["article_id"],
-                text=article["text"],
-                metadata=article.get("metadata", {})
-            )
-            documents.append(doc)
-        
-        logger.info(
-            "Prepared documents for vector store",
-            document_count=len(documents)
-        )
-        
-        return documents
     
     async def health_check(self) -> Dict[str, Any]:
         """Check LangChain OpenAI embeddings connectivity."""

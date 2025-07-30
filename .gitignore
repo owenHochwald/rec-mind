@@ -43,3 +43,6 @@ build/
 api/test_endpoints.sh
 api/.env.example
 llm/.env.example
+
+.claude/
+.claude/*
