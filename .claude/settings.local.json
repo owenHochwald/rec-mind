@@ -9,7 +9,8 @@
       "Bash(cp:*)",
       "Bash(timeout:*)",
       "Bash(python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
