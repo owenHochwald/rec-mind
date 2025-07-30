@@ -1,14 +1,13 @@
-"""OpenAI embeddings service with async operations and retry logic."""
+"""LangChain-based embeddings service with batch processing."""
 
 import asyncio
 import time
 from typing import List, Dict, Any
 from uuid import UUID
 
-import openai
 import structlog
-from openai import AsyncOpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
 
 from .config import get_settings
 from .models import EmbeddingRequest, EmbeddingResponse, BatchEmbeddingRequest, BatchEmbeddingResponse
@@ -19,110 +18,116 @@ settings = get_settings()
 
 
 class EmbeddingsService:
-    """Service for generating embeddings using OpenAI API."""
+    """LangChain-based embeddings service for generating embeddings."""
     
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
-        self.max_tokens = settings.max_tokens
+        self.embeddings = OpenAIEmbeddings(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model
+        )
         self.batch_size = settings.batch_size
         
-    @retry(
-        retry=retry_if_exception_type((openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)),
-        stop=stop_after_attempt(settings.max_retries),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        reraise=True
-    )
-    async def _generate_embedding(self, text: str) -> tuple[List[float], int]:
-        """Generate embedding for a single text with retry logic."""
-        try:
-            logger.info("Generating embedding", text_length=len(text), model=self.model)
-            
-            response = await self.client.embeddings.create(
-                model=self.model,
-                input=text,
-                encoding_format="float"
-            )
-            
-            embedding = response.data[0].embedding
-            tokens_used = response.usage.total_tokens
-            
-            logger.info(
-                "Embedding generated successfully",
-                dimensions=len(embedding),
-                tokens_used=tokens_used
-            )
-            
-            return embedding, tokens_used
-            
-        except openai.RateLimitError as e:
-            logger.warning("Rate limit exceeded, retrying", error=str(e))
-            raise
-        except openai.APITimeoutError as e:
-            logger.warning("API timeout, retrying", error=str(e))
-            raise
-        except openai.APIConnectionError as e:
-            logger.warning("API connection error, retrying", error=str(e))
-            raise
-        except Exception as e:
-            logger.error("Unexpected error generating embedding", error=str(e))
-            raise
-    
     async def generate_embedding(self, request: EmbeddingRequest) -> EmbeddingResponse:
-        """Generate embedding for a single article."""
+        """Generate embedding for a single article using LangChain."""
         start_time = time.time()
         
         try:
-            embedding, tokens_used = await self._generate_embedding(request.text)
+            logger.info(
+                "Generating embedding with LangChain",
+                article_id=str(request.article_id),
+                text_length=len(request.text),
+                model=settings.openai_model
+            )
+            
+            # Use LangChain's embed_query method for single text
+            embedding_vector = await asyncio.to_thread(
+                self.embeddings.embed_query, 
+                request.text
+            )
             
             processing_time = time.time() - start_time
+            
+            # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
+            estimated_tokens = len(request.text) // 4
+            
             logger.info(
-                "Single embedding completed",
+                "Single embedding completed with LangChain",
                 article_id=str(request.article_id),
                 processing_time=processing_time,
-                tokens_used=tokens_used
+                dimensions=len(embedding_vector),
+                estimated_tokens=estimated_tokens
             )
             
             return EmbeddingResponse(
                 article_id=request.article_id,
-                embeddings=embedding,
-                dimensions=len(embedding),
-                model=self.model,
-                tokens_used=tokens_used
+                embeddings=embedding_vector,
+                dimensions=len(embedding_vector),
+                model=settings.openai_model,
+                tokens_used=estimated_tokens
             )
             
         except Exception as e:
             logger.error(
-                "Failed to generate embedding",
+                "Failed to generate embedding with LangChain",
                 article_id=str(request.article_id),
                 error=str(e)
             )
             raise
     
     async def generate_batch_embeddings(self, request: BatchEmbeddingRequest) -> BatchEmbeddingResponse:
-        """Generate embeddings for multiple articles in parallel."""
+        """Generate embeddings for multiple articles using LangChain batch processing."""
         start_time = time.time()
         total_tokens = 0
         results = []
         
         try:
-            logger.info("Starting batch embedding generation", batch_size=len(request.items))
+            logger.info(
+                "Starting batch embedding generation with LangChain",
+                batch_size=len(request.items)
+            )
             
             # Process items in chunks to respect rate limits
             for i in range(0, len(request.items), self.batch_size):
                 chunk = request.items[i:i + self.batch_size]
+                logger.info(f"Processing chunk {i//self.batch_size + 1}/{(len(request.items) + self.batch_size - 1)//self.batch_size}")
                 
-                # Create tasks for parallel processing within chunk
-                tasks = [self.generate_embedding(item) for item in chunk]
-                chunk_results = await asyncio.gather(*tasks, return_exceptions=True)
+                # Extract texts for batch processing
+                texts = [item.text for item in chunk]
                 
-                for result in chunk_results:
-                    if isinstance(result, Exception):
-                        logger.error("Batch item failed", error=str(result))
-                        raise result
-                    else:
+                try:
+                    # Use LangChain's embed_documents method for batch processing
+                    chunk_embeddings = await asyncio.to_thread(
+                        self.embeddings.embed_documents,
+                        texts
+                    )
+                    
+                    # Create response objects for each embedding
+                    for item, embedding_vector in zip(chunk, chunk_embeddings):
+                        estimated_tokens = len(item.text) // 4
+                        total_tokens += estimated_tokens
+                        
+                        result = EmbeddingResponse(
+                            article_id=item.article_id,
+                            embeddings=embedding_vector,
+                            dimensions=len(embedding_vector),
+                            model=settings.openai_model,
+                            tokens_used=estimated_tokens
+                        )
                         results.append(result)
-                        total_tokens += result.tokens_used
+                    
+                    logger.info(
+                        "Chunk processed successfully",
+                        chunk_size=len(chunk),
+                        chunk_tokens=sum(len(item.text) // 4 for item in chunk)
+                    )
+                    
+                except Exception as chunk_error:
+                    logger.error(
+                        "Chunk processing failed",
+                        chunk_index=i//self.batch_size,
+                        error=str(chunk_error)
+                    )
+                    raise chunk_error
                 
                 # Rate limiting between chunks
                 if i + self.batch_size < len(request.items):
@@ -130,7 +135,7 @@ class EmbeddingsService:
             
             processing_time = time.time() - start_time
             logger.info(
-                "Batch embedding completed",
+                "Batch embedding completed with LangChain",
                 total_items=len(results),
                 total_tokens=total_tokens,
                 processing_time=processing_time
@@ -143,19 +148,54 @@ class EmbeddingsService:
             )
             
         except Exception as e:
-            logger.error("Batch embedding failed", error=str(e))
+            logger.error("Batch embedding failed with LangChain", error=str(e))
             raise
     
+    def create_document(self, article_id: UUID, text: str, metadata: Dict[str, Any] = None) -> Document:
+        """Create a LangChain Document object for article processing."""
+        doc_metadata = {
+            "article_id": str(article_id),
+            "source": f"article_{article_id}",
+            **(metadata or {})
+        }
+        
+        return Document(
+            page_content=text,
+            metadata=doc_metadata
+        )
+    
+    def generate_article_id(self, article_id: UUID, chunk_num: int = 0) -> str:
+        """Generate standardized ID for vector storage following LangChain pattern."""
+        return f"article_{article_id}#chunk_{chunk_num}"
+    
+    async def embed_documents_for_vectorstore(self, articles: List[Dict[str, Any]]) -> List[Document]:
+        """Convert articles to LangChain Documents ready for vector store upload."""
+        documents = []
+        
+        for article in articles:
+            doc = self.create_document(
+                article_id=article["article_id"],
+                text=article["text"],
+                metadata=article.get("metadata", {})
+            )
+            documents.append(doc)
+        
+        logger.info(
+            "Prepared documents for vector store",
+            document_count=len(documents)
+        )
+        
+        return documents
+    
     async def health_check(self) -> Dict[str, Any]:
-        """Check OpenAI API connectivity."""
+        """Check LangChain OpenAI embeddings connectivity."""
         try:
             start_time = time.time()
             
             # Simple health check with minimal API call
-            await self.client.embeddings.create(
-                model=self.model,
-                input="health check",
-                encoding_format="float"
+            test_embedding = await asyncio.to_thread(
+                self.embeddings.embed_query,
+                "health check"
             )
             
             response_time = time.time() - start_time
@@ -163,15 +203,18 @@ class EmbeddingsService:
             return {
                 "status": "healthy",
                 "response_time": response_time,
-                "model": self.model
+                "model": settings.openai_model,
+                "embedding_dimensions": len(test_embedding),
+                "provider": "langchain_openai"
             }
             
         except Exception as e:
-            logger.error("OpenAI health check failed", error=str(e))
+            logger.error("LangChain OpenAI health check failed", error=str(e))
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "model": self.model
+                "model": settings.openai_model,
+                "provider": "langchain_openai"
             }
 
 

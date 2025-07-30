@@ -22,6 +22,7 @@ from .models import (
 )
 from .embeddings import get_embeddings_service, EmbeddingsService
 from .vectordb import get_vectordb_service, VectorDBService
+from .utils import endpoint_error_handler
 
 
 # Configure structured logging
@@ -180,97 +181,108 @@ async def detailed_health_check(
 
 
 @app.post("/embeddings/generate", response_model=EmbeddingResponse)
+@endpoint_error_handler("embedding generation")
 async def generate_embedding(
     request: EmbeddingRequest,
     embeddings_svc: EmbeddingsService = Depends(get_embeddings_service)
 ):
     """Generate embedding for a single text."""
-    try:
-        logger.info("Processing embedding request", article_id=str(request.article_id))
-        
-        result = await embeddings_svc.generate_embedding(request)
-        
-        logger.info("Embedding generated successfully", article_id=str(request.article_id))
-        return result
-        
-    except Exception as e:
-        logger.error("Failed to generate embedding", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Embedding generation failed: {str(e)}")
+    return await embeddings_svc.generate_embedding(request)
 
 
 @app.post("/embeddings/batch", response_model=BatchEmbeddingResponse)
+@endpoint_error_handler("batch embedding generation")
 async def generate_batch_embeddings(
     request: BatchEmbeddingRequest,
     embeddings_svc: EmbeddingsService = Depends(get_embeddings_service)
 ):
     """Generate embeddings for multiple texts."""
-    try:
-        logger.info("Processing batch embedding request", batch_size=len(request.items))
-        
-        result = await embeddings_svc.generate_batch_embeddings(request)
-        
-        logger.info("Batch embeddings generated successfully", batch_size=len(result.results))
-        return result
-        
-    except Exception as e:
-        logger.error("Failed to generate batch embeddings", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Batch embedding generation failed: {str(e)}")
+    logger.info("Processing batch embedding request", batch_size=len(request.items))
+    result = await embeddings_svc.generate_batch_embeddings(request)
+    logger.info("Batch embeddings generated successfully", batch_size=len(result.results))
+    return result
 
 
 @app.post("/embeddings/upload")
+@endpoint_error_handler("embedding upload")
 async def upload_embedding(
     request: PineconeUploadRequest,
     vectordb_svc: VectorDBService = Depends(get_vectordb_service)
 ):
     """Upload embedding vector to Pinecone."""
-    try:
-        logger.info("Processing upload request", article_id=str(request.article_id))
-        
-        result = await vectordb_svc.upload_embedding(request)
-        
-        logger.info("Embedding uploaded successfully", article_id=str(request.article_id))
-        return result
-        
-    except Exception as e:
-        logger.error("Failed to upload embedding", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Embedding upload failed: {str(e)}")
+    return await vectordb_svc.upload_embedding(request)
 
 
 @app.post("/search/similar", response_model=PineconeSearchResponse)
+@endpoint_error_handler("similarity search")
 async def search_similar_articles(
     request: PineconeSearchRequest,
     vectordb_svc: VectorDBService = Depends(get_vectordb_service)
 ):
     """Search for similar articles using vector similarity."""
-    try:
-        logger.info("Processing similarity search", article_id=str(request.article_id))
-        
-        result = await vectordb_svc.search_similar(request)
-        
-        logger.info(
-            "Similarity search completed",
-            article_id=str(request.article_id),
-            results_found=len(result.results)
-        )
-        return result
-        
-    except Exception as e:
-        logger.error("Failed to search similar articles", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Similarity search failed: {str(e)}")
+    result = await vectordb_svc.search_similar(request)
+    logger.info(
+        "Similarity search completed",
+        article_id=str(request.article_id),
+        results_found=len(result.results)
+    )
+    return result
 
 
 @app.get("/index/stats")
+@endpoint_error_handler("index statistics retrieval")
 async def get_index_stats(
     vectordb_svc: VectorDBService = Depends(get_vectordb_service)
 ):
     """Get Pinecone index statistics."""
-    try:
-        stats = await vectordb_svc.get_index_stats()
-        return stats
-        
-    except Exception as e:
-        logger.error("Failed to get index stats", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to get index stats: {str(e)}")
+    return await vectordb_svc.get_index_stats()
+
+
+@app.get("/test/pinecone")
+@endpoint_error_handler("Pinecone connection test")
+async def test_pinecone_connection(
+    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
+):
+    """Test Pinecone connection and basic operations."""
+    return await vectordb_svc.test_connection()
+
+
+@app.post("/embeddings/generate-and-upload")
+@endpoint_error_handler("embedding generation and upload")
+async def generate_and_upload_embedding(
+    request: EmbeddingRequest,
+    embeddings_svc: EmbeddingsService = Depends(get_embeddings_service),
+    vectordb_svc: VectorDBService = Depends(get_vectordb_service)
+):
+    """Generate embedding and upload to Pinecone in one step."""
+    # Generate embedding
+    embedding_response = await embeddings_svc.generate_embedding(request)
+    
+    # Upload to Pinecone
+    upload_request = PineconeUploadRequest(
+        article_id=request.article_id,
+        embeddings=embedding_response.embeddings,
+        metadata={
+            "title": request.text[:100],  # First 100 chars as title
+            "model": embedding_response.model,
+            "dimensions": embedding_response.dimensions
+        }
+    )
+    
+    upload_response = await vectordb_svc.upload_embedding(upload_request)
+    
+    return {
+        "article_id": str(request.article_id),
+        "embedding": {
+            "dimensions": embedding_response.dimensions,
+            "model": embedding_response.model,
+            "tokens_used": embedding_response.tokens_used
+        },
+        "upload": upload_response,
+        "status": "completed"
+    }
+
+
 
 
 if __name__ == "__main__":

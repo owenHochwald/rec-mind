@@ -1,11 +1,11 @@
-"""Pinecone vector database operations with direct host connection."""
+"""Simplified Pinecone vector database operations."""
 
 import time
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
-import pinecone
 import structlog
+from pinecone import Pinecone, ServerlessSpec
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from .config import get_settings
@@ -22,61 +22,56 @@ settings = get_settings()
 
 
 class VectorDBService:
-    """Service for Pinecone vector database operations using direct host connection."""
+    """Simplified Pinecone vector database service."""
     
     def __init__(self):
         self.api_key = settings.pinecone_api_key
-        self.environment = settings.pinecone_environment
-        self.host = settings.pinecone_host
         self.index_name = settings.pinecone_index_name
         self.dimension = settings.embedding_dimensions
+        self._pc = None
         self._index = None
-        self._initialized = False
+        
+    def _get_client(self):
+        """Get or create Pinecone client."""
+        if not self._pc:
+            self._pc = Pinecone(api_key=self.api_key)
+        return self._pc
     
-    async def _initialize(self):
-        """Initialize Pinecone connection using modern SDK approach."""
-        if self._initialized:
-            return
+    def _get_index(self):
+        """Get or create index connection."""
+        if not self._index:
+            pc = self._get_client()
             
-        try:
-            logger.info("Initializing Pinecone connection", 
-                       index_name=self.index_name,
-                       host_configured=bool(self.host))
+            # Create index if it doesn't exist
+            if not pc.has_index(self.index_name):
+                logger.info(f"Creating index {self.index_name}")
+                pc.create_index(
+                    name=self.index_name,
+                    dimension=self.dimension,
+                    metric="cosine",
+                    spec=ServerlessSpec(
+                        cloud="aws",
+                        region="us-east-1"
+                    )
+                )
+                logger.info(f"Index {self.index_name} created successfully")
             
-            if not self.host:
-                raise ValueError("PINECONE_HOST must be configured for direct connection")
+            # Initialize index client
+            self._index = pc.Index(name=self.index_name)
+            logger.info(f"Connected to index {self.index_name}")
             
-            logger.info("Connecting to Pinecone index", 
-                       host=self.host, 
-                       index_name=self.index_name)
-            
-            # Initialize Pinecone client with host configuration (modern SDK v7+ approach)
-            pc = pinecone.Pinecone(api_key=self.api_key, host=self.host)
-            
-            # Connect to index by name - host is already configured in client
-            self._index = pc.Index(self.index_name)
-            
-            self._initialized = True
-            logger.info("Pinecone connection established successfully", 
-                       index_name=self.index_name,
-                       host=self.host)
-            
-        except Exception as e:
-            logger.error("Failed to initialize Pinecone connection", error=str(e))
-            raise
+        return self._index
     
     @retry(
-        retry=retry_if_exception_type((pinecone.exceptions.PineconeException,)),
         stop=stop_after_attempt(settings.max_retries),
         wait=wait_exponential(multiplier=1, min=2, max=8),
         reraise=True
     )
     async def upload_embedding(self, request: PineconeUploadRequest) -> Dict[str, Any]:
-        """Upload embedding vector to Pinecone with retry logic."""
-        await self._initialize()
-        
+        """Upload embedding vector to Pinecone."""
         try:
             start_time = time.time()
+            index = self._get_index()
             
             # Prepare vector data
             vector_data = {
@@ -96,8 +91,7 @@ class VectorDBService:
             )
             
             # Upload vector
-            upsert_response = self._index.upsert([vector_data])
-            
+            upsert_response = index.upsert([vector_data])
             upload_time = time.time() - start_time
             
             logger.info(
@@ -123,17 +117,15 @@ class VectorDBService:
             raise
     
     @retry(
-        retry=retry_if_exception_type((pinecone.exceptions.PineconeException,)),
         stop=stop_after_attempt(settings.max_retries),
         wait=wait_exponential(multiplier=1, min=2, max=8),
         reraise=True
     )
     async def search_similar(self, request: PineconeSearchRequest) -> PineconeSearchResponse:
         """Search for similar vectors in Pinecone."""
-        await self._initialize()
-        
         try:
             start_time = time.time()
+            index = self._get_index()
             
             logger.info(
                 "Searching for similar vectors",
@@ -143,7 +135,7 @@ class VectorDBService:
             )
             
             # First, get the query vector for the article
-            query_response = self._index.fetch([str(request.article_id)])
+            query_response = index.fetch([str(request.article_id)])
             
             if not query_response.vectors:
                 raise ValueError(f"Article {request.article_id} not found in vector database")
@@ -151,7 +143,7 @@ class VectorDBService:
             query_vector = query_response.vectors[str(request.article_id)]["values"]
             
             # Perform similarity search
-            search_response = self._index.query(
+            search_response = index.query(
                 vector=query_vector,
                 top_k=request.top_k + 1,  # +1 to exclude self
                 include_metadata=request.include_metadata,
@@ -173,7 +165,6 @@ class VectorDBService:
             
             # Limit to requested number
             results = results[:request.top_k]
-            
             search_time = time.time() - start_time
             
             logger.info(
@@ -200,13 +191,11 @@ class VectorDBService:
     
     async def delete_vector(self, article_id: UUID) -> Dict[str, Any]:
         """Delete vector from Pinecone."""
-        await self._initialize()
-        
         try:
+            index = self._get_index()
             logger.info("Deleting vector", article_id=str(article_id))
             
-            delete_response = self._index.delete([str(article_id)])
-            
+            index.delete([str(article_id)])
             logger.info("Vector deleted successfully", article_id=str(article_id))
             
             return {
@@ -220,10 +209,9 @@ class VectorDBService:
     
     async def get_index_stats(self) -> Dict[str, Any]:
         """Get Pinecone index statistics."""
-        await self._initialize()
-        
         try:
-            stats = self._index.describe_index_stats()
+            index = self._get_index()
+            stats = index.describe_index_stats()
             
             return {
                 "total_vectors": stats.total_vector_count,
@@ -241,11 +229,8 @@ class VectorDBService:
         try:
             start_time = time.time()
             
-            await self._initialize()
-            
             # Simple health check by getting index stats
             stats = await self.get_index_stats()
-            
             response_time = time.time() - start_time
             
             return {
@@ -260,6 +245,90 @@ class VectorDBService:
             logger.error("Pinecone health check failed", error=str(e))
             return {
                 "status": "unhealthy",
+                "error": str(e),
+                "index_name": self.index_name
+            }
+    
+    async def test_connection(self) -> Dict[str, Any]:
+        """Test Pinecone connection with basic operations."""
+        try:
+            start_time = time.time()
+            test_results = {}
+            
+            # Test 1: Get index and stats
+            logger.info("Testing Pinecone connection")
+            index = self._get_index()
+            test_results["connection"] = "success"
+            
+            stats = await self.get_index_stats()
+            test_results["index_stats"] = {
+                "status": "success",
+                "total_vectors": stats["total_vectors"],
+                "dimension": stats["dimension"]
+            }
+            
+            # Test 2: Basic operations with dummy data
+            test_vector_id = "test-connection-vector"
+            test_vector = [0.1] * self.dimension
+            
+            try:
+                # Test upsert
+                logger.info("Testing vector operations")
+                upsert_result = index.upsert([{
+                    "id": test_vector_id,
+                    "values": test_vector,
+                    "metadata": {"test": True, "timestamp": time.time()}
+                }])
+                test_results["upsert"] = {
+                    "status": "success",
+                    "count": upsert_result.upserted_count
+                }
+                
+                # Test fetch
+                fetch_result = index.fetch([test_vector_id])
+                test_results["fetch"] = {
+                    "status": "success" if fetch_result.vectors else "failed",
+                    "found": len(fetch_result.vectors)
+                }
+                
+                # Test query
+                query_result = index.query(
+                    vector=test_vector,
+                    top_k=1,
+                    include_metadata=True
+                )
+                test_results["query"] = {
+                    "status": "success",
+                    "matches": len(query_result.matches)
+                }
+                
+                # Cleanup
+                index.delete([test_vector_id])
+                test_results["cleanup"] = "success"
+                
+            except Exception as op_error:
+                test_results["operations"] = {
+                    "status": "failed",
+                    "error": str(op_error)
+                }
+            
+            total_time = time.time() - start_time
+            overall_status = "success" if all(
+                r.get("status", r) == "success" 
+                for r in test_results.values()
+            ) else "partial"
+            
+            return {
+                "overall_status": overall_status,
+                "test_duration": total_time,
+                "index_name": self.index_name,
+                "tests": test_results
+            }
+            
+        except Exception as e:
+            logger.error("Pinecone connection test failed", error=str(e))
+            return {
+                "overall_status": "failed",
                 "error": str(e),
                 "index_name": self.index_name
             }
