@@ -205,6 +205,8 @@
 
 ## API Documentation
 
+Note: Auto-generated visual documentation is available for the Go server at http://localhost:8080/swagger/index.html#/
+
 ### Core Endpoints
 
 #### Article Management
