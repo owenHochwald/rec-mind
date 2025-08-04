@@ -9,16 +9,16 @@ BINARY_NAME=main
 
 # Build the application
 build:
-	$(GOBUILD) -o $(BINARY_NAME) -v cmd/server/main.go
+	$(GOBUILD) -o $(BINARY_NAME) -v server/main.go
 
 # Run the application locally
 run:
-	$(GOBUILD) -o $(BINARY_NAME) -v cmd/server/main.go
+	$(GOBUILD) -o $(BINARY_NAME) -v server/main.go
 	./$(BINARY_NAME)
 
 # Run without building binary
 dev:
-	$(GOCMD) run cmd/server/main.go
+	$(GOCMD) run server/main.go
 
 # Clean build files
 clean:
@@ -33,6 +33,19 @@ test:
 deps:
 	$(GOCMD) mod download
 	$(GOCMD) mod tidy
+
+# Migration commands
+migrate:
+	$(GOCMD) run cmd/migrate/main.go -dir migrations
+
+migrate-up:
+	$(GOCMD) run cmd/migrate/main.go -dir migrations
+
+# Documentation commands
+swagger:
+	/Users/owenhochwald/go/bin/swag init -g server/main.go
+
+docs: swagger
 
 # Docker commands
 docker-build:
