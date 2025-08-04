@@ -17,14 +17,19 @@ FastAPI-based Python service for machine learning operations including OpenAI em
 ### 1. Environment Setup
 
 ```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your API keys
+# Create .env file with your API keys
 OPENAI_API_KEY=your-openai-key-here
 PINECONE_API_KEY=your-pinecone-key-here
-PINECONE_ENVIRONMENT=us-west1-gcp
 PINECONE_INDEX_NAME=news-articles
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=recmind
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
 ```
 
 ### 2. Local Development
@@ -33,12 +38,37 @@ PINECONE_INDEX_NAME=news-articles
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the service
-python -m uvicorn app.main:app --reload --port 8000
+# Option 1: Quick start (recommended)
+python run.py
 
-# Or run directly
-python app/main.py
+# Option 2: Check infrastructure first
+python dev-setup.py
+
+# Option 3: Start with uvicorn directly
+python -m uvicorn app.main:app --reload --port 8000
 ```
+
+### 3. Infrastructure Setup (Optional)
+
+The service works with graceful degradation - core features work without infrastructure:
+
+```bash
+# Start full infrastructure (PostgreSQL + RabbitMQ + Redis)
+cd ../infra && docker-compose up -d
+
+# Check what's running
+python dev-setup.py
+```
+
+**Features available without infrastructure:**
+- ✅ Text chunking with LangChain
+- ✅ OpenAI embeddings generation  
+- ✅ Pinecone vector operations
+- ✅ API documentation
+
+**Features requiring infrastructure:**
+- 🔶 PostgreSQL: Chunk storage in database
+- 🔶 RabbitMQ: Async article processing queue
 
 ### 3. Docker Deployment
 
@@ -57,10 +87,14 @@ docker run -p 8000:8000 --env-file .env recmind-ml-service
 - `GET /health` - Basic service health
 - `GET /health/detail` - Detailed health with dependency status
 
-### Embeddings
-- `POST /embeddings/generate` - Generate single embedding
+### Article Processing
+- `POST /articles/process` - Full article processing with chunking
+- `POST /text/chunk` - Split text into chunks
+- `GET /chunks/parameters` - View chunking configuration
+
+### Embeddings  
 - `POST /embeddings/batch` - Batch embedding generation
-- `POST /embeddings/upload` - Upload embeddings to Pinecone
+- `POST /embeddings/batch-and-upload` - Generate and upload to Pinecone
 
 ### Vector Search
 - `POST /search/similar` - Find similar articles
@@ -100,11 +134,11 @@ async def search_similar():
 ## Testing
 
 ```bash
-# Run the test suite
-python test_service.py
+# Start the service first
+python run.py
 
-# Make sure the service is running first:
-# python -m uvicorn app.main:app --port 8000
+# Then run tests (in another terminal)
+python test.py
 ```
 
 ## Configuration

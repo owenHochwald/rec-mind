@@ -9,6 +9,7 @@ import (
 	"github.com/owenHochwald/rec-mind-api/internal/database"
 	"github.com/owenHochwald/rec-mind-api/internal/mlclient"
 	"github.com/owenHochwald/rec-mind-api/internal/repository"
+	"github.com/owenHochwald/rec-mind-api/mq"
 )
 
 // ArticleService handles article processing with ML integration
@@ -98,6 +99,32 @@ func (s *ArticleService) CreateArticleWithAsyncEmbedding(ctx context.Context, re
 			log.Printf("Async embedding generation completed for article: %s", article.ID)
 		}
 	}()
+
+	return article, nil
+}
+
+// CreateArticleWithChunking creates an article and schedules chunking + embedding processing
+func (s *ArticleService) CreateArticleWithChunking(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error) {
+	// Step 1: Create article in database
+	article, err := s.repo.Create(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create article: %w", err)
+	}
+
+	// Step 2: Publish to article processing queue for chunking and embedding
+	err = mq.PublishArticleProcessing(
+		article.ID.String(),
+		article.Title,
+		article.Content,
+		req.Category,
+		article.CreatedAt.Format(time.RFC3339),
+	)
+	if err != nil {
+		log.Printf("Failed to publish article %s for processing: %v", article.ID, err)
+		// Don't fail the request - article is created, just log the queue error
+	} else {
+		log.Printf("Article %s queued for chunking and embedding processing", article.ID)
+	}
 
 	return article, nil
 }

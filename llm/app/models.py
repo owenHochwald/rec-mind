@@ -97,3 +97,37 @@ class ErrorResponse(BaseModel):
     error_code: str = Field(..., description="Error code")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
     request_id: Optional[str] = Field(default=None, description="Request identifier")
+
+
+class ArticleProcessingRequest(BaseModel):
+    """Request model for article processing with chunking."""
+    article_id: UUID = Field(..., description="Unique article identifier")
+    title: str = Field(..., min_length=1, max_length=500, description="Article title")
+    content: str = Field(..., min_length=1, description="Article content")
+    category: str = Field(..., min_length=1, max_length=100, description="Article category")
+    created_at: datetime = Field(..., description="Article creation timestamp")
+
+
+class ChunkRequest(BaseModel):
+    """Request model for text chunking."""
+    text: str = Field(..., min_length=1, description="Text to be chunked")
+    chunk_size: Optional[int] = Field(default=500, ge=100, le=2000, description="Maximum chunk size")
+    chunk_overlap: Optional[int] = Field(default=50, ge=0, le=200, description="Overlap between chunks")
+
+
+class ChunkResponse(BaseModel):
+    """Response model for individual text chunks."""
+    article_id: UUID = Field(..., description="Source article identifier")
+    chunk_index: int = Field(..., ge=0, description="Index of chunk within article")
+    content: str = Field(..., description="Chunk content")
+    token_count: int = Field(..., ge=0, description="Estimated token count")
+    character_count: int = Field(..., ge=0, description="Character count")
+
+
+class ArticleProcessingResponse(BaseModel):
+    """Response model for complete article processing."""
+    article_id: UUID = Field(..., description="Article identifier")
+    chunks_created: int = Field(..., ge=0, description="Number of chunks created")
+    embeddings_generated: int = Field(..., ge=0, description="Number of embeddings generated")
+    processing_time: float = Field(..., ge=0, description="Total processing time in seconds")
+    status: str = Field(..., description="Processing status")

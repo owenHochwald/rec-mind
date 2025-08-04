@@ -67,15 +67,18 @@ class VectorDBService:
         wait=wait_exponential(multiplier=1, min=2, max=8),
         reraise=True
     )
-    async def upload_embedding(self, request: PineconeUploadRequest) -> Dict[str, Any]:
+    async def upload_embedding(self, request: PineconeUploadRequest, vector_id: str = None) -> Dict[str, Any]:
         """Upload embedding vector to Pinecone."""
         try:
             start_time = time.time()
             index = self._get_index()
             
+            # Use provided vector_id or default to article_id
+            vid = vector_id if vector_id else str(request.article_id)
+            
             # Prepare vector data
             vector_data = {
-                "id": str(request.article_id),
+                "id": vid,
                 "values": request.embeddings,
                 "metadata": {
                     **request.metadata,

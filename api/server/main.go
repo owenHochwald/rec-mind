@@ -80,9 +80,6 @@ func main() {
 
 	// API endpoints
 	r.POST("/api/upload", uploadArticle(articleService))
-	r.POST("/api/upload/legacy", uploadArticleLegacy(articleRepo))
-	r.POST("/api/interact", handleInteraction())
-	r.GET("/api/recommend", getRecommendations())
 	r.GET("/api/ml/health", checkMLHealth(articleService))
 
 	// Scraper endpoints
@@ -128,20 +125,6 @@ func uploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 	return controllers.UploadArticle(articleService)
 }
 
-// uploadArticleLegacy handles legacy article upload with message queue publishing only
-// @Summary Upload a new article (legacy)
-// @Description Upload a new article to the system without ML processing (legacy endpoint)
-// @Tags articles
-// @Accept json
-// @Produce json
-// @Param article body object{title=string,content=string,url=string,category=string} true "Article data"
-// @Success 201 {object} object{message=string,article_id=string}
-// @Failure 400 {object} object{error=string}
-// @Failure 500 {object} object{error=string}
-// @Router /api/upload/legacy [post]
-func uploadArticleLegacy(repo repository.ArticleRepository) gin.HandlerFunc {
-	return controllers.UploadArticleLegacy(repo)
-}
 
 // checkMLHealth checks the health of the ML service
 // @Summary Check ML service health
@@ -168,28 +151,6 @@ func scrapeArticles(scraperService *services.ScraperService) gin.HandlerFunc {
 	return controllers.ScrapeArticles(scraperService)
 }
 
-// handleInteraction handles user interactions (placeholder)
-// @Summary Handle user interaction
-// @Description Process user interaction data (placeholder endpoint)
-// @Tags interactions
-// @Accept json
-// @Produce json
-// @Success 200 {object} object{message=string}
-// @Router /api/interact [post]
-func handleInteraction() gin.HandlerFunc {
-	return controllers.HandleInteraction
-}
-
-// getRecommendations handles recommendation requests (placeholder)
-// @Summary Get article recommendations
-// @Description Get personalized article recommendations (placeholder endpoint)
-// @Tags recommendations
-// @Produce json
-// @Success 200 {object} object{message=string}
-// @Router /api/recommend [get]
-func getRecommendations() gin.HandlerFunc {
-	return controllers.GetRecommendations
-}
 
 // listArticles handles article listing with pagination
 // @Summary List articles

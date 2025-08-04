@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -12,34 +11,8 @@ import (
 	"github.com/owenHochwald/rec-mind-api/internal/database"
 	"github.com/owenHochwald/rec-mind-api/internal/repository"
 	"github.com/owenHochwald/rec-mind-api/internal/services"
-	"github.com/owenHochwald/rec-mind-api/mq"
 )
 
-// UploadArticleLegacy creates a new article using the repository pattern (legacy without ML)
-func UploadArticleLegacy(repo repository.ArticleRepository) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req database.CreateArticleRequest
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		article, err := repo.Create(c.Request.Context(), &req)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
-			return
-		}
-
-		// Publish to message queue
-		jsonData, _ := json.Marshal(article)
-		if err := mq.PublishEvent(string(jsonData)); err != nil {
-			log.Printf("Failed to publish article event: %v", err)
-		}
-
-		c.JSON(http.StatusCreated, article.ToResponse())
-	}
-}
 
 // UploadArticle creates a new article with ML embedding generation
 func UploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
@@ -85,8 +58,8 @@ func UploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 			c.JSON(http.StatusCreated, response)
 
 		case "async":
-			// Asynchronous processing - return immediately, generate embeddings in background
-			article, err := articleService.CreateArticleWithAsyncEmbedding(c.Request.Context(), &req)
+			// Asynchronous processing with chunking - return immediately, process in background
+			article, err := articleService.CreateArticleWithChunking(c.Request.Context(), &req)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
 				return
@@ -94,8 +67,8 @@ func UploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 
 			c.JSON(http.StatusCreated, gin.H{
 				"article": article.ToResponse(),
-				"message": "Article created successfully. Embedding generation is processing in the background.",
-				"processing_mode": "async",
+				"message": "Article created successfully. Chunking and embedding generation are processing in the background.",
+				"processing_mode": "async_chunking",
 			})
 
 		default:
@@ -225,5 +198,3 @@ func CheckMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
 	}
 }
 
-func HandleInteraction(c *gin.Context)  {}
-func GetRecommendations(c *gin.Context) {}

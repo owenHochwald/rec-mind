@@ -4,6 +4,10 @@ import os
 from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+# Load .env file explicitly
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -31,6 +35,23 @@ class Settings(BaseSettings):
     request_timeout: int = Field(default=30, description="Request timeout in seconds")
     max_retries: int = Field(default=3, description="Maximum retry attempts")
     
+    # Database Configuration
+    db_host: str = Field(default="localhost", description="PostgreSQL host")
+    db_port: int = Field(default=5431, description="PostgreSQL port") 
+    db_user: str = Field(default="postgres", description="PostgreSQL username")
+    db_password: str = Field(default="secret", description="PostgreSQL password")
+    db_name: str = Field(default="postgres", description="PostgreSQL database name")
+    db_ssl_mode: str = Field(default="disable", description="PostgreSQL SSL mode")
+    db_max_connections: int = Field(default=25, description="Max database connections")
+    db_max_idle_time: str = Field(default="15m", description="Max idle connection time")
+    
+    # RabbitMQ Configuration
+    rabbitmq_host: str = Field(default="localhost", description="RabbitMQ host")
+    rabbitmq_port: int = Field(default=5672, description="RabbitMQ port")
+    rabbitmq_user: str = Field(default="guest", description="RabbitMQ username")
+    rabbitmq_password: str = Field(default="guest", description="RabbitMQ password")
+    rabbitmq_vhost: str = Field(default="/", description="RabbitMQ virtual host")
+    
     # CORS Configuration
     cors_origins: list[str] = Field(
         default=["http://localhost:8080", "http://localhost:3000"],
@@ -41,6 +62,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra environment variables
 
 
 # Global settings instance

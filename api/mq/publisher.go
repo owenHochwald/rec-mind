@@ -1,11 +1,12 @@
 package mq
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
-	"fmt"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/joho/godotenv"
 )
 
@@ -77,4 +78,39 @@ func PublishEvent(body string) error {
 		},
 	)
 	return err
+}
+
+// PublishArticleProcessing publishes an article to the processing queue for chunking and embedding
+func PublishArticleProcessing(articleID, title, content, category string, createdAt string) error {
+	message := map[string]interface{}{
+		"article_id": articleID,
+		"title":      title,
+		"content":    content,
+		"category":   category,
+		"created_at": createdAt,
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal article processing message: %w", err)
+	}
+
+	err = MQChannel.Publish(
+		"",                   // exchange
+		"article_processing", // routing key (queue name)
+		false,                // mandatory
+		false,                // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         messageBytes,
+			DeliveryMode: 2, // Make message persistent (2 = persistent, 1 = transient)
+		},
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to publish article processing message: %w", err)
+	}
+	
+	log.Printf("📨 Published article %s to processing queue", articleID)
+	return nil
 }

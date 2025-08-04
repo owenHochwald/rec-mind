@@ -11,4 +11,8 @@ python-dotenv
 langchain-openai
 langchain-pinecone
 langchain-core
+langchain-text-splitters
 tenacity
+aio-pika
+asyncpg
+psycopg2-binary
