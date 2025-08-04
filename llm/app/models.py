@@ -122,6 +122,7 @@ class ChunkResponse(BaseModel):
     content: str = Field(..., description="Chunk content")
     token_count: int = Field(..., ge=0, description="Estimated token count")
     character_count: int = Field(..., ge=0, description="Character count")
+    pinecone_id: Optional[str] = Field(default=None, description="Pinecone vector ID reference")
 
 
 class ArticleProcessingResponse(BaseModel):

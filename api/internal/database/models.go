@@ -23,6 +23,7 @@ type ArticleChunk struct {
 	Content        string    `json:"content" db:"content"`
 	TokenCount     *int      `json:"token_count" db:"token_count"`
 	CharacterCount *int      `json:"character_count" db:"character_count"`
+	PineconeID     *string   `json:"pinecone_id" db:"pinecone_id"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }
 
@@ -46,12 +47,14 @@ type CreateArticleChunkRequest struct {
 	Content        string    `json:"content" binding:"required"`
 	TokenCount     *int      `json:"token_count,omitempty" binding:"omitempty,min=0"`
 	CharacterCount *int      `json:"character_count,omitempty" binding:"omitempty,min=0"`
+	PineconeID     *string   `json:"pinecone_id,omitempty"`
 }
 
 type UpdateArticleChunkRequest struct {
 	Content        *string `json:"content,omitempty"`
 	TokenCount     *int    `json:"token_count,omitempty" binding:"omitempty,min=0"`
 	CharacterCount *int    `json:"character_count,omitempty" binding:"omitempty,min=0"`
+	PineconeID     *string `json:"pinecone_id,omitempty"`
 }
 
 type ArticleChunkFilter struct {
@@ -87,6 +90,7 @@ func (a *ArticleChunk) ToResponse() map[string]interface{} {
 		"content":         a.Content,
 		"token_count":     a.TokenCount,
 		"character_count": a.CharacterCount,
+		"pinecone_id":     a.PineconeID,
 		"created_at":      a.CreatedAt,
 	}
 }
