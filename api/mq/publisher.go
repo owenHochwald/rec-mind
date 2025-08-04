@@ -3,13 +3,28 @@ package mq
 import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"os"
+	"fmt"
+
+	"github.com/joho/godotenv"
 )
 
 var MQConn *amqp.Connection
 var MQChannel *amqp.Channel
 
 func InitRabbitMQ() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	rabbitUser := os.Getenv("RABBITMQ_USER")
+	rabbitPassword := os.Getenv("RABBITMQ_PASSWORD")
+
+	amqpURL := fmt.Sprintf("amqp://%s:%s@localhost:5672/", rabbitUser, rabbitPassword)
+
+	conn, err := amqp.Dial(amqpURL)
+	
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
