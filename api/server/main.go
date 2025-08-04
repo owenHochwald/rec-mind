@@ -51,8 +51,9 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize repository
+	// Initialize repositories
 	articleRepo := repository.NewArticleRepository(db.Pool)
+	chunkRepo := repository.NewArticleChunkRepository(db.Pool)
 
 	// Initialize ML client
 	mlClient := mlclient.NewMLClient()
@@ -75,8 +76,8 @@ func main() {
 	r.GET("/health/python", handlers.CheckPythonHealth())
 
 	// API endpoints
-	r.POST("/api/upload", uploadArticleWithML(articleService))
-	r.POST("/api/upload/legacy", uploadArticle(articleRepo))
+	r.POST("/api/upload", uploadArticle(articleService))
+	r.POST("/api/upload/legacy", uploadArticleLegacy(articleRepo))
 	r.POST("/api/interact", handleInteraction())
 	r.GET("/api/recommend", getRecommendations())
 	r.GET("/api/ml/health", checkMLHealth(articleService))
@@ -87,40 +88,53 @@ func main() {
 	r.PUT("/api/v1/articles/:id", updateArticle(articleRepo))
 	r.DELETE("/api/v1/articles/:id", deleteArticle(articleRepo))
 
+	// Article chunks endpoints
+	r.POST("/api/v1/chunks", createArticleChunk(chunkRepo))
+	r.POST("/api/v1/chunks/batch", createArticleChunksBatch(chunkRepo))
+	r.GET("/api/v1/chunks", listArticleChunks(chunkRepo))
+	r.GET("/api/v1/chunks/:id", getArticleChunk(chunkRepo))
+	r.PUT("/api/v1/chunks/:id", updateArticleChunk(chunkRepo))
+	r.DELETE("/api/v1/chunks/:id", deleteArticleChunk(chunkRepo))
+	
+	// Article-specific chunks endpoints
+	r.GET("/api/v1/articles/:id/chunks/:index", getArticleChunkByIndex(chunkRepo))
+	r.GET("/api/v1/articles/:id/chunks", getArticleChunks(chunkRepo))
+	r.DELETE("/api/v1/articles/:id/chunks", deleteArticleChunks(chunkRepo))
+
 	log.Println("✅ Server ready on :8080")
 	log.Println("📚 Swagger UI available at: http://localhost:8080/swagger/index.html")
 	r.Run(":8080")
 }
 
-// uploadArticleWithML handles article upload with ML embedding generation
+// uploadArticle handles article upload with ML embedding generation
 // @Summary Upload a new article with ML processing
 // @Description Upload a new article to the system and automatically generate embeddings using the Python ML service
 // @Tags articles
 // @Accept json
 // @Produce json
-// @Param article body object{title=string,content=string,url=string,category=string,published_at=string} true "Article data"
+// @Param article body object{title=string,content=string,url=string,category=string} true "Article data"
 // @Param processing query string false "Processing mode: 'sync' or 'async' (default: async)"
 // @Success 201 {object} object{article=object,message=string,processing_mode=string}
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
 // @Router /api/upload [post]
-func uploadArticleWithML(articleService *services.ArticleService) gin.HandlerFunc {
-	return controllers.UploadArticleV3(articleService)
+func uploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
+	return controllers.UploadArticle(articleService)
 }
 
-// uploadArticle handles legacy article upload with message queue publishing only
+// uploadArticleLegacy handles legacy article upload with message queue publishing only
 // @Summary Upload a new article (legacy)
 // @Description Upload a new article to the system without ML processing (legacy endpoint)
 // @Tags articles
 // @Accept json
 // @Produce json
-// @Param article body object{title=string,content=string,url=string,category=string,published_at=string} true "Article data"
+// @Param article body object{title=string,content=string,url=string,category=string} true "Article data"
 // @Success 201 {object} object{message=string,article_id=string}
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
 // @Router /api/upload/legacy [post]
-func uploadArticle(repo repository.ArticleRepository) gin.HandlerFunc {
-	return controllers.UploadArticleV2(repo)
+func uploadArticleLegacy(repo repository.ArticleRepository) gin.HandlerFunc {
+	return controllers.UploadArticleLegacy(repo)
 }
 
 // checkMLHealth checks the health of the ML service
@@ -218,4 +232,136 @@ func updateArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 // @Router /api/v1/articles/{id} [delete]
 func deleteArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 	return controllers.DeleteArticle(repo)
+}
+
+// createArticleChunk handles chunk creation
+// @Summary Create a new article chunk
+// @Description Create a new chunk for an article with content and metadata
+// @Tags chunks
+// @Accept json
+// @Produce json
+// @Param chunk body object{article_id=string,chunk_index=int,content=string,token_count=int,character_count=int} true "Chunk data"
+// @Success 201 {object} object{chunk=object}
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /api/v1/chunks [post]
+func createArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.CreateArticleChunk(repo)
+}
+
+// createArticleChunksBatch handles batch chunk creation
+// @Summary Create multiple article chunks
+// @Description Create multiple chunks for an article in a single request
+// @Tags chunks
+// @Accept json
+// @Produce json
+// @Param chunks body object{chunks=array} true "Array of chunk data"
+// @Success 201 {object} object{chunks=array,count=int}
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /api/v1/chunks/batch [post]
+func createArticleChunksBatch(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.CreateArticleChunksBatch(repo)
+}
+
+// listArticleChunks handles chunk listing with pagination
+// @Summary List article chunks
+// @Description Get a paginated list of article chunks with optional filtering
+// @Tags chunks
+// @Produce json
+// @Param article_id query string false "Filter by article ID"
+// @Param limit query int false "Items per page (default: 20, max: 100)"
+// @Param offset query int false "Offset for pagination"
+// @Success 200 {object} object{chunks=array,total=int,limit=int,offset=int}
+// @Failure 500 {object} object{error=string}
+// @Router /api/v1/chunks [get]
+func listArticleChunks(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.ListArticleChunks(repo)
+}
+
+// getArticleChunk handles single chunk retrieval
+// @Summary Get article chunk by ID
+// @Description Retrieve a single article chunk by its UUID
+// @Tags chunks
+// @Produce json
+// @Param id path string true "Chunk UUID"
+// @Success 200 {object} object{chunk=object}
+// @Failure 400 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /api/v1/chunks/{id} [get]
+func getArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.GetArticleChunk(repo)
+}
+
+// updateArticleChunk handles chunk updates
+// @Summary Update article chunk
+// @Description Update an existing article chunk
+// @Tags chunks
+// @Accept json
+// @Produce json
+// @Param id path string true "Chunk UUID"
+// @Param chunk body object{content=string,token_count=int,character_count=int} true "Updated chunk data"
+// @Success 200 {object} object{chunk=object}
+// @Failure 400 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /api/v1/chunks/{id} [put]
+func updateArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.UpdateArticleChunk(repo)
+}
+
+// deleteArticleChunk handles chunk deletion
+// @Summary Delete article chunk
+// @Description Delete a specific article chunk by its UUID
+// @Tags chunks
+// @Produce json
+// @Param id path string true "Chunk UUID"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /api/v1/chunks/{id} [delete]
+func deleteArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.DeleteArticleChunk(repo)
+}
+
+// getArticleChunks handles retrieving all chunks for an article
+// @Summary Get all chunks for an article
+// @Description Retrieve all chunks belonging to a specific article
+// @Tags chunks
+// @Produce json
+// @Param id path string true "Article UUID"
+// @Success 200 {object} object{chunks=array,count=int}
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /api/v1/articles/{id}/chunks [get]
+func getArticleChunks(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.GetArticleChunks(repo)
+}
+
+// getArticleChunkByIndex handles retrieving a chunk by article and index
+// @Summary Get article chunk by index
+// @Description Retrieve a specific chunk by article ID and chunk index
+// @Tags chunks
+// @Produce json
+// @Param id path string true "Article UUID"
+// @Param index path int true "Chunk index"
+// @Success 200 {object} object{chunk=object}
+// @Failure 400 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /api/v1/articles/{id}/chunks/{index} [get]
+func getArticleChunkByIndex(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.GetArticleChunkByIndex(repo)
+}
+
+// deleteArticleChunks handles deleting all chunks for an article
+// @Summary Delete all chunks for an article
+// @Description Delete all chunks belonging to a specific article
+// @Tags chunks
+// @Produce json
+// @Param id path string true "Article UUID"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /api/v1/articles/{id}/chunks [delete]
+func deleteArticleChunks(repo repository.ArticleChunkRepository) gin.HandlerFunc {
+	return controllers.DeleteArticleChunks(repo)
 }

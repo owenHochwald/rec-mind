@@ -127,8 +127,6 @@ paths:
               type: string
             content:
               type: string
-            published_at:
-              type: string
             title:
               type: string
             url:
@@ -185,8 +183,6 @@ paths:
             category:
               type: string
             content:
-              type: string
-            published_at:
               type: string
             title:
               type: string
@@ -406,6 +402,376 @@ paths:
       summary: Update article
       tags:
       - articles
+  /api/v1/articles/{id}/chunks:
+    delete:
+      description: Delete all chunks belonging to a specific article
+      parameters:
+      - description: Article UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Delete all chunks for an article
+      tags:
+      - chunks
+    get:
+      description: Retrieve all chunks belonging to a specific article
+      parameters:
+      - description: Article UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              chunks:
+                type: array
+              count:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get all chunks for an article
+      tags:
+      - chunks
+  /api/v1/articles/{id}/chunks/{index}:
+    get:
+      description: Retrieve a specific chunk by article ID and chunk index
+      parameters:
+      - description: Article UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Chunk index
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              chunk:
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get article chunk by index
+      tags:
+      - chunks
+  /api/v1/chunks:
+    get:
+      description: Get a paginated list of article chunks with optional filtering
+      parameters:
+      - description: Filter by article ID
+        in: query
+        name: article_id
+        type: string
+      - description: 'Items per page (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              chunks:
+                type: array
+              limit:
+                type: integer
+              offset:
+                type: integer
+              total:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: List article chunks
+      tags:
+      - chunks
+    post:
+      consumes:
+      - application/json
+      description: Create a new chunk for an article with content and metadata
+      parameters:
+      - description: Chunk data
+        in: body
+        name: chunk
+        required: true
+        schema:
+          properties:
+            article_id:
+              type: string
+            character_count:
+              type: integer
+            chunk_index:
+              type: integer
+            content:
+              type: string
+            token_count:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              chunk:
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Create a new article chunk
+      tags:
+      - chunks
+  /api/v1/chunks/{id}:
+    delete:
+      description: Delete a specific article chunk by its UUID
+      parameters:
+      - description: Chunk UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Delete article chunk
+      tags:
+      - chunks
+    get:
+      description: Retrieve a single article chunk by its UUID
+      parameters:
+      - description: Chunk UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              chunk:
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get article chunk by ID
+      tags:
+      - chunks
+    put:
+      consumes:
+      - application/json
+      description: Update an existing article chunk
+      parameters:
+      - description: Chunk UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated chunk data
+        in: body
+        name: chunk
+        required: true
+        schema:
+          properties:
+            character_count:
+              type: integer
+            content:
+              type: string
+            token_count:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              chunk:
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Update article chunk
+      tags:
+      - chunks
+  /api/v1/chunks/batch:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple chunks for an article in a single request
+      parameters:
+      - description: Array of chunk data
+        in: body
+        name: chunks
+        required: true
+        schema:
+          properties:
+            chunks:
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              chunks:
+                type: array
+              count:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Create multiple article chunks
+      tags:
+      - chunks
   /health:
     get:
       consumes:
