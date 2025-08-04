@@ -24,34 +24,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/interact": {
-            "post": {
-                "description": "Process user interaction data (placeholder endpoint)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "interactions"
-                ],
-                "summary": "Handle user interaction",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/ml/health": {
             "get": {
                 "description": "Check if the Python ML service is available and ready for embedding generation",
@@ -87,31 +59,6 @@ const docTemplate = `{
                                 },
                                 "ml_service_healthy": {
                                     "type": "boolean"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/recommend": {
-            "get": {
-                "description": "Get personalized article recommendations (placeholder endpoint)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "recommendations"
-                ],
-                "summary": "Get article recommendations",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
                                 }
                             }
                         }
@@ -244,84 +191,6 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "processing_mode": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/upload/legacy": {
-            "post": {
-                "description": "Upload a new article to the system without ML processing (legacy endpoint)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "articles"
-                ],
-                "summary": "Upload a new article (legacy)",
-                "parameters": [
-                    {
-                        "description": "Article data",
-                        "name": "article",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "category": {
-                                    "type": "string"
-                                },
-                                "content": {
-                                    "type": "string"
-                                },
-                                "title": {
-                                    "type": "string"
-                                },
-                                "url": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "article_id": {
-                                    "type": "string"
-                                },
-                                "message": {
                                     "type": "string"
                                 }
                             }
