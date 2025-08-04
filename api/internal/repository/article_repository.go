@@ -34,14 +34,14 @@ func NewArticleRepository(db *pgxpool.Pool) ArticleRepository {
 
 func (r *articleRepository) Create(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error) {
 	query := `
-		INSERT INTO articles (title, content, url, category, published_at)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, title, content, url, category, published_at, created_at, updated_at`
+		INSERT INTO articles (title, content, url, category)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, title, content, url, category, created_at, updated_at`
 
 	var article database.Article
-	err := r.db.QueryRow(ctx, query, req.Title, req.Content, req.URL, req.Category, req.PublishedAt).
+	err := r.db.QueryRow(ctx, query, req.Title, req.Content, req.URL, req.Category).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
-			&article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.CreatedAt, &article.UpdatedAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create article: %w", err)
@@ -52,14 +52,14 @@ func (r *articleRepository) Create(ctx context.Context, req *database.CreateArti
 
 func (r *articleRepository) GetByID(ctx context.Context, id uuid.UUID) (*database.Article, error) {
 	query := `
-		SELECT id, title, content, url, category, published_at, created_at, updated_at
+		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
 		WHERE id = $1`
 
 	var article database.Article
 	err := r.db.QueryRow(ctx, query, id).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
-			&article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.CreatedAt, &article.UpdatedAt)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -73,14 +73,14 @@ func (r *articleRepository) GetByID(ctx context.Context, id uuid.UUID) (*databas
 
 func (r *articleRepository) GetByURL(ctx context.Context, url string) (*database.Article, error) {
 	query := `
-		SELECT id, title, content, url, category, published_at, created_at, updated_at
+		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
 		WHERE url = $1`
 
 	var article database.Article
 	err := r.db.QueryRow(ctx, query, url).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
-			&article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.CreatedAt, &article.UpdatedAt)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -96,7 +96,7 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 	filter.SetDefaults()
 
 	query := `
-		SELECT id, title, content, url, category, published_at, created_at, updated_at
+		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles`
 
 	var conditions []string
@@ -109,17 +109,6 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 		argIndex++
 	}
 
-	if filter.StartDate != nil {
-		conditions = append(conditions, fmt.Sprintf("published_at >= $%d", argIndex))
-		args = append(args, *filter.StartDate)
-		argIndex++
-	}
-
-	if filter.EndDate != nil {
-		conditions = append(conditions, fmt.Sprintf("published_at <= $%d", argIndex))
-		args = append(args, *filter.EndDate)
-		argIndex++
-	}
 
 	if filter.SearchTerm != nil && *filter.SearchTerm != "" {
 		conditions = append(conditions, fmt.Sprintf("(title ILIKE $%d OR content ILIKE $%d)", argIndex, argIndex))
@@ -131,7 +120,7 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	query += " ORDER BY published_at DESC"
+	query += " ORDER BY created_at DESC"
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, filter.Limit, filter.Offset)
 
@@ -145,7 +134,7 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 	for rows.Next() {
 		var article database.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
-			&article.Category, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
 		}
@@ -184,11 +173,6 @@ func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *datab
 		argIndex++
 	}
 
-	if req.PublishedAt != nil {
-		setParts = append(setParts, fmt.Sprintf("published_at = $%d", argIndex))
-		args = append(args, *req.PublishedAt)
-		argIndex++
-	}
 
 	if len(setParts) == 0 {
 		return r.GetByID(ctx, id)
@@ -202,7 +186,7 @@ func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *datab
 		UPDATE articles
 		SET %s
 		WHERE id = $%d
-		RETURNING id, title, content, url, category, published_at, created_at, updated_at`,
+		RETURNING id, title, content, url, category, created_at, updated_at`,
 		strings.Join(setParts, ", "), argIndex)
 
 	args = append(args, id)
@@ -210,7 +194,7 @@ func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *datab
 	var article database.Article
 	err := r.db.QueryRow(ctx, query, args...).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
-			&article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.CreatedAt, &article.UpdatedAt)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -250,17 +234,6 @@ func (r *articleRepository) Count(ctx context.Context, filter *database.ArticleF
 		argIndex++
 	}
 
-	if filter.StartDate != nil {
-		conditions = append(conditions, fmt.Sprintf("published_at >= $%d", argIndex))
-		args = append(args, *filter.StartDate)
-		argIndex++
-	}
-
-	if filter.EndDate != nil {
-		conditions = append(conditions, fmt.Sprintf("published_at <= $%d", argIndex))
-		args = append(args, *filter.EndDate)
-		argIndex++
-	}
 
 	if filter.SearchTerm != nil && *filter.SearchTerm != "" {
 		conditions = append(conditions, fmt.Sprintf("(title ILIKE $%d OR content ILIKE $%d)", argIndex, argIndex))
@@ -283,10 +256,10 @@ func (r *articleRepository) Count(ctx context.Context, filter *database.ArticleF
 
 func (r *articleRepository) GetByCategory(ctx context.Context, category string, limit int) ([]*database.Article, error) {
 	query := `
-		SELECT id, title, content, url, category, published_at, created_at, updated_at
+		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
 		WHERE category = $1
-		ORDER BY published_at DESC
+		ORDER BY created_at DESC
 		LIMIT $2`
 
 	rows, err := r.db.Query(ctx, query, category, limit)
@@ -299,7 +272,7 @@ func (r *articleRepository) GetByCategory(ctx context.Context, category string, 
 	for rows.Next() {
 		var article database.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
-			&article.Category, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
 		}
@@ -311,9 +284,9 @@ func (r *articleRepository) GetByCategory(ctx context.Context, category string, 
 
 func (r *articleRepository) GetRecent(ctx context.Context, limit int) ([]*database.Article, error) {
 	query := `
-		SELECT id, title, content, url, category, published_at, created_at, updated_at
+		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
-		ORDER BY published_at DESC
+		ORDER BY created_at DESC
 		LIMIT $1`
 
 	rows, err := r.db.Query(ctx, query, limit)
@@ -326,7 +299,7 @@ func (r *articleRepository) GetRecent(ctx context.Context, limit int) ([]*databa
 	for rows.Next() {
 		var article database.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
-			&article.Category, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt)
+			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article: %w", err)
 		}

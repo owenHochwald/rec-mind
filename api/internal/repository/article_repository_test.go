@@ -32,13 +32,13 @@ func setupTestDB(t *testing.T) (*database.DB, ArticleRepository) {
 
 	ctx := context.Background()
 	_, err = db.Pool.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS articles (
+		DROP TABLE IF EXISTS articles CASCADE;
+		CREATE TABLE articles (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			title VARCHAR(500) NOT NULL,
 			content TEXT NOT NULL,
 			url VARCHAR(1000) UNIQUE NOT NULL,
 			category VARCHAR(100) NOT NULL,
-			published_at TIMESTAMP NOT NULL,
 			created_at TIMESTAMP DEFAULT NOW(),
 			updated_at TIMESTAMP DEFAULT NOW()
 		);
@@ -56,7 +56,7 @@ func cleanupTestDB(t *testing.T, db *database.DB) {
 		return
 	}
 	ctx := context.Background()
-	_, err := db.Pool.Exec(ctx, "TRUNCATE TABLE articles")
+	_, err := db.Pool.Exec(ctx, "TRUNCATE TABLE articles CASCADE")
 	if err != nil {
 		t.Logf("Warning: Failed to cleanup test data: %v", err)
 	}
@@ -75,7 +75,6 @@ func TestArticleRepository_Create(t *testing.T) {
 		Content:     "This is test content for the article.",
 		URL:         "https://example.com/test-article",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	article, err := repo.Create(context.Background(), req)
@@ -103,7 +102,6 @@ func TestArticleRepository_Create_DuplicateURL(t *testing.T) {
 		Content:     "Content",
 		URL:         "https://example.com/duplicate",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	_, err := repo.Create(context.Background(), req)
@@ -125,7 +123,6 @@ func TestArticleRepository_GetByID(t *testing.T) {
 		Content:     "Content",
 		URL:         "https://example.com/test",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	created, err := repo.Create(context.Background(), req)
@@ -163,7 +160,6 @@ func TestArticleRepository_GetByURL(t *testing.T) {
 		Content:     "Content",
 		URL:         "https://example.com/unique-url",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	created, err := repo.Create(context.Background(), req)
@@ -187,15 +183,13 @@ func TestArticleRepository_List(t *testing.T) {
 			Content:     "Tech content 1",
 			URL:         "https://example.com/tech1",
 			Category:    "Technology",
-			PublishedAt: time.Now().UTC(),
-		},
+			},
 		{
 			Title:       "Sports Article 1",
 			Content:     "Sports content 1",
 			URL:         "https://example.com/sports1",
 			Category:    "Sports",
-			PublishedAt: time.Now().UTC().Add(-1 * time.Hour),
-		},
+			},
 	}
 
 	for _, req := range articles {
@@ -225,7 +219,6 @@ func TestArticleRepository_List_WithCategoryFilter(t *testing.T) {
 		Content:     "Tech content",
 		URL:         "https://example.com/tech-filter",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	sportsReq := &database.CreateArticleRequest{
@@ -233,7 +226,6 @@ func TestArticleRepository_List_WithCategoryFilter(t *testing.T) {
 		Content:     "Sports content",
 		URL:         "https://example.com/sports-filter",
 		Category:    "Sports",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	_, err := repo.Create(context.Background(), techReq)
@@ -266,7 +258,6 @@ func TestArticleRepository_Update(t *testing.T) {
 		Content:     "Original content",
 		URL:         "https://example.com/update-test",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	created, err := repo.Create(context.Background(), req)
@@ -296,7 +287,6 @@ func TestArticleRepository_Delete(t *testing.T) {
 		Content:     "Content to delete",
 		URL:         "https://example.com/to-delete",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	created, err := repo.Create(context.Background(), req)
@@ -322,7 +312,6 @@ func TestArticleRepository_Count(t *testing.T) {
 		Content:     "Content for counting",
 		URL:         "https://example.com/count-test",
 		Category:    "Technology",
-		PublishedAt: time.Now().UTC(),
 	}
 
 	_, err := repo.Create(context.Background(), req)
@@ -341,22 +330,19 @@ func TestArticleRepository_GetRecent(t *testing.T) {
 	}
 	defer cleanupTestDB(t, db)
 
-	now := time.Now().UTC()
 	articles := []*database.CreateArticleRequest{
 		{
 			Title:       "Recent 1",
 			Content:     "Content 1",
 			URL:         "https://example.com/recent1",
 			Category:    "Technology",
-			PublishedAt: now,
-		},
+			},
 		{
 			Title:       "Recent 2",
 			Content:     "Content 2", 
 			URL:         "https://example.com/recent2",
 			Category:    "Technology",
-			PublishedAt: now.Add(-1 * time.Hour),
-		},
+			},
 	}
 
 	for _, req := range articles {
@@ -367,5 +353,5 @@ func TestArticleRepository_GetRecent(t *testing.T) {
 	results, err := repo.GetRecent(context.Background(), 5)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(results), 2)
-	assert.True(t, results[0].PublishedAt.After(results[1].PublishedAt) || results[0].PublishedAt.Equal(results[1].PublishedAt))
+	assert.True(t, results[0].CreatedAt.After(results[1].CreatedAt) || results[0].CreatedAt.Equal(results[1].CreatedAt))
 }
