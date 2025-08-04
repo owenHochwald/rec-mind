@@ -34,7 +34,7 @@ func InitRabbitMQ() {
 		log.Fatalf("Failed to open a channel: %v", err)
 	}
 
-	// Declare a queue
+	// Declare article_events queue
 	_, err = ch.QueueDeclare(
 		"article_events", // queue name
 		true,             // durable
@@ -44,7 +44,20 @@ func InitRabbitMQ() {
 		nil,              // arguments
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare queue: %v", err)
+		log.Fatalf("Failed to declare article_events queue: %v", err)
+	}
+
+	// Declare article_processing queue
+	_, err = ch.QueueDeclare(
+		"article_processing", // queue name
+		true,                 // durable
+		false,                // auto-delete
+		false,                // exclusive
+		false,                // no-wait
+		nil,                  // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare article_processing queue: %v", err)
 	}
 
 	MQConn = conn

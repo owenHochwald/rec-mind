@@ -110,6 +110,51 @@ paths:
       summary: Get article recommendations
       tags:
       - recommendations
+  /api/scrape:
+    post:
+      description: Scrape all configured RSS feeds, validate articles, and publish
+        to processing queue
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              feed_results:
+                type: array
+              message:
+                type: string
+              success:
+                type: boolean
+              summary:
+                type: object
+            type: object
+        "207":
+          description: Multi-Status
+          schema:
+            properties:
+              feed_results:
+                type: array
+              message:
+                type: string
+              success:
+                type: boolean
+              summary:
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              details:
+                type: string
+              error:
+                type: string
+            type: object
+      summary: Scrape RSS feeds for articles
+      tags:
+      - scraper
   /api/upload:
     post:
       consumes:

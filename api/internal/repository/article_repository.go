@@ -16,6 +16,7 @@ type ArticleRepository interface {
 	Create(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*database.Article, error)
 	GetByURL(ctx context.Context, url string) (*database.Article, error)
+	ExistsByURL(ctx context.Context, url string) (bool, error)
 	List(ctx context.Context, filter *database.ArticleFilter) ([]*database.Article, error)
 	Update(ctx context.Context, id uuid.UUID, req *database.UpdateArticleRequest) (*database.Article, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -90,6 +91,18 @@ func (r *articleRepository) GetByURL(ctx context.Context, url string) (*database
 	}
 
 	return &article, nil
+}
+
+func (r *articleRepository) ExistsByURL(ctx context.Context, url string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM articles WHERE url = $1)`
+
+	var exists bool
+	err := r.db.QueryRow(ctx, query, url).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if article exists by URL: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFilter) ([]*database.Article, error) {

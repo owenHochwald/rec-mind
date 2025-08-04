@@ -116,6 +116,74 @@
                 }
             }
         },
+        "/api/scrape": {
+            "post": {
+                "description": "Scrape all configured RSS feeds, validate articles, and publish to processing queue",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scraper"
+                ],
+                "summary": "Scrape RSS feeds for articles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "feed_results": {
+                                    "type": "array"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "success": {
+                                    "type": "boolean"
+                                },
+                                "summary": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "207": {
+                        "description": "Multi-Status",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "feed_results": {
+                                    "type": "array"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "success": {
+                                    "type": "boolean"
+                                },
+                                "summary": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "details": {
+                                    "type": "string"
+                                },
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/upload": {
             "post": {
                 "description": "Upload a new article to the system and automatically generate embeddings using the Python ML service",

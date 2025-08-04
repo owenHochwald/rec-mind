@@ -64,6 +64,9 @@ func main() {
 	// Initialize message queue
 	mq.InitRabbitMQ()
 
+	// Initialize scraper service
+	scraperService := services.NewScraperService(articleRepo, mq.MQChannel)
+
 	// Setup Gin router
 	r := gin.Default()
 
@@ -81,6 +84,9 @@ func main() {
 	r.POST("/api/interact", handleInteraction())
 	r.GET("/api/recommend", getRecommendations())
 	r.GET("/api/ml/health", checkMLHealth(articleService))
+
+	// Scraper endpoints
+	r.POST("/api/scrape", scrapeArticles(scraperService))
 
 	// Article management endpoints
 	r.GET("/api/v1/articles", listArticles(articleRepo))
@@ -147,6 +153,19 @@ func uploadArticleLegacy(repo repository.ArticleRepository) gin.HandlerFunc {
 // @Router /api/ml/health [get]
 func checkMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
 	return controllers.CheckMLHealth(articleService)
+}
+
+// scrapeArticles triggers RSS feed scraping
+// @Summary Scrape RSS feeds for articles
+// @Description Scrape all configured RSS feeds, validate articles, and publish to processing queue
+// @Tags scraper
+// @Produce json
+// @Success 200 {object} object{success=bool,message=string,summary=object,feed_results=array}
+// @Success 207 {object} object{success=bool,message=string,summary=object,feed_results=array}
+// @Failure 500 {object} object{error=string,details=string}
+// @Router /api/scrape [post]
+func scrapeArticles(scraperService *services.ScraperService) gin.HandlerFunc {
+	return controllers.ScrapeArticles(scraperService)
 }
 
 // handleInteraction handles user interactions (placeholder)
