@@ -152,88 +152,194 @@
 ## Quick Start
 
 ### Prerequisites
-- Go 1.23+
-- Python 3.11+
-- PostgreSQL 15+
-- Redis 7+
-- RabbitMQ 3.12+
+- Go 1.21+
+- Python 3.9+
 - Docker & Docker Compose
+- OpenAI API Key
+- Pinecone API Key
 
-### Local Development Setup
+### 1. Start Infrastructure Services
 
-1. **Clone and Configure**
-   ```bash
-   git clone <repository-url>
-   cd rec-mind
-   
-   # Configure API database
-   cd api
-   cp .env.example .env
-   # Edit .env with your database credentials
-   
-   # Configure ML service
-   cd ../llm
-   cp .env.example .env
-   # Add your OpenAI and Pinecone API keys
-   ```
-
-2. **Start Infrastructure**
-   ```bash
-   # Start databases and message queue
-   cd infra
-   docker-compose up -d
-   ```
-
-3. **Database Setup**
-   ```bash
-   cd api
-   # Run migrations
-   psql -h localhost -p 5431 -U postgres -d postgres -f migrations/001_create_articles_table.sql
-   ```
-
-4. **Start Services**
-   ```bash
-   # Terminal 1: Start Go API
-   cd api
-   make dev
-   
-   # Terminal 2: Start Python ML Service
-   cd llm
-   python start_service.py
-   ```
-
-5. **Verify Installation**
-   ```bash
-   # Check API health
-   curl http://localhost:8080/health
-   
-   # Check ML service health via Go API
-   curl http://localhost:8080/api/ml/health
-   
-   # Check Python ML service directly
-   curl http://localhost:8000/health
-   
-   # View API documentation
-   open http://localhost:8080/swagger/index.html  # Go API docs
-   open http://localhost:8000/docs                # Python ML docs
-   
-   # Run integration tests
-   cd api && ./test_ml_integration.sh
-   ```
-
-
-## Deployment
-
-### Environment Configuration
 ```bash
-# Production environment variables
-DB_HOST=prod-postgres.amazonaws.com
-DB_MAX_CONNECTIONS=50
-REDIS_URL=redis://prod-redis.amazonaws.com:6379
-RABBITMQ_URL=amqp://prod-rabbitmq.amazonaws.com:5672
-OPENAI_API_KEY=your-production-key
-PINECONE_API_KEY=your-production-key
+# Start PostgreSQL, Redis, and RabbitMQ
+cd infra/
+docker-compose up -d
+
+# Verify services are running
+docker-compose ps
 ```
+
+### 2. Start Python ML Service
+
+```bash
+# Navigate to Python service directory
+cd llm/
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables (create .env file)
+cat > .env << EOF
+OPENAI_API_KEY=your_openai_api_key
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_index_name
+PINECONE_ENVIRONMENT=your_environment
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+EOF
+
+# Start the FastAPI service
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 3. Start Go API Server
+
+```bash
+# Navigate to API directory
+cd api/
+
+# Set environment variables (create .env file)
+cat > .env << EOF
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=rec_mind
+REDIS_URL=redis://localhost:6379
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+PYTHON_ML_SERVICE_URL=http://localhost:8000
+EOF
+
+# Install Go dependencies
+go mod tidy
+
+# Start the API server
+make dev
+# OR
+go run server/main.go
+```
+
+### 4. Start Go RAG Worker
+
+```bash
+# In a separate terminal, start the RAG worker
+cd api/
+go run cmd/rag_worker/main.go
+```
+
+### 5. Verify Installation
+
+```bash
+# Check system health
+curl http://localhost:8080/health
+
+# Check detailed health with dependencies
+curl http://localhost:8080/health/detail
+
+# Check Python ML service health
+curl http://localhost:8080/health/python
+
+# Check recommendation service health
+curl http://localhost:8080/api/v1/recommendations/health
+
+# View API documentation
+open http://localhost:8080/swagger/index.html  # Go API docs
+open http://localhost:8000/docs                # Python ML docs
+
+# Test integration
+cd api/ && ./test_ml_integration.sh
+```
+
+
+## 📚 API Documentation
+
+Once the services are running, access the interactive API documentation:
+
+- **Go API Docs**: http://localhost:8080/swagger/index.html
+- **Python ML Docs**: http://localhost:8000/docs
+
+### Development Commands
+```bash
+# Development (recommended)
+make dev              # Run without building binary
+
+# Production
+make build           # Build binary
+make run             # Build and run
+make clean           # Remove build artifacts
+
+# Testing
+make test            # Run all tests with verbose output
+
+# Dependencies
+make deps            # Download and tidy Go modules
+
+# Docker
+make docker-build    # Build Docker image
+make docker-run      # Run containerized application
+```
+
+### Docker Compose
+```bash
+# Start all infrastructure services
+make docker-compose-up
+
+# Stop all services
+make docker-compose-down
+```
+
+## System Workflow
+
+### Article Processing Flow
+1. **Upload**: Article posted to `/api/upload`
+2. **Storage**: Article saved to PostgreSQL
+3. **Queue**: Article published to `article_processing` RabbitMQ queue
+4. **ML Processing**: Python service consumes, generates embeddings, uploads to Pinecone
+5. **Completion**: Processing status updated
+
+### Recommendation Flow
+1. **Request**: User requests recommendations for article ID
+2. **Cache Check**: Redis checked for existing results
+3. **Job Creation**: If not cached, async job created and published to `recommendation_jobs` queue
+4. **RAG Worker**: Go worker consumes job, gets article chunks from PostgreSQL
+5. **Chunk Search**: For each chunk, similarity search published to `chunk_search` queue
+6. **ML Processing**: Python services consume chunk searches, perform Pinecone vector search
+7. **Result Aggregation**: RAG worker collects results, applies hybrid scoring algorithm
+8. **Enrichment**: Results enriched with full article data from PostgreSQL
+9. **Storage**: Final recommendations stored in Redis with TTL
+10. **Response**: Results returned to client
+
+## Configuration
+
+### Environment Variables
+
+#### Required
+```bash
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=rec_mind
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+
+# Python ML Service
+PYTHON_ML_SERVICE_URL=http://localhost:8000
+
+# OpenAI (for embeddings)
+OPENAI_API_KEY=your_openai_api_key
+
+# Pinecone (for vector search)
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_index_name
+PINECONE_ENVIRONMENT=your_environment
+```
+
+
 
 ### Monitoring & Observability
 - **Prometheus Metrics**: Custom metrics for business and technical KPIs
