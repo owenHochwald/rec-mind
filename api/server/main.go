@@ -118,6 +118,13 @@ func main() {
 	r.GET("/api/v1/jobs/:job_id", recommendationController.GetRecommendationJobStatus)
 	r.GET("/api/v1/recommendations/health", recommendationController.HealthCheck)
 
+	// Search endpoints (query-based recommendations)
+	searchController := controllers.NewSearchController()
+	r.POST("/api/v1/search/recommendations", searchController.SearchByQuery)
+	r.POST("/api/v1/search/immediate", searchController.SearchWithImmediateResponse)
+	r.GET("/api/v1/search/jobs/:job_id", searchController.GetQuerySearchJobStatus)
+	r.GET("/api/v1/search/health", searchController.HealthCheck)
+
 	log.Println("✅ Server ready on :8080")
 	log.Println("📚 Swagger UI available at: http://localhost:8080/swagger/index.html")
 	r.Run(":8080")

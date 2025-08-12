@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/owenHochwald/rec-mind-api/config"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
+	"rec-mind/config"
+	"rec-mind/internal/database"
 )
 
 func setupTestDB(t *testing.T) (*database.DB, ArticleRepository) {

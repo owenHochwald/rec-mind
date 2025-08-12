@@ -26,6 +26,7 @@ from .chunking import get_chunking_service, ChunkingService
 from .database import get_database_service, DatabaseService
 from .mq_consumer import get_article_consumer, start_article_processing
 from .chunk_search_consumer import get_chunk_search_consumer, start_chunk_search_processing
+from .query_search_consumer import get_query_search_consumer, start_query_search_processing
 from .utils import endpoint_error_handler
 
 
@@ -79,12 +80,15 @@ async def lifespan(app: FastAPI):
         # Initialize RabbitMQ consumers
         consumer = await get_article_consumer()
         chunk_search_consumer = await get_chunk_search_consumer()
+        query_search_consumer = await get_query_search_consumer()
         try:
             await consumer.connect()
             await chunk_search_consumer.connect()
+            await query_search_consumer.connect()
             # Start consumers as background tasks
             asyncio.create_task(start_article_processing())
             asyncio.create_task(start_chunk_search_processing())
+            asyncio.create_task(start_query_search_processing())
             logger.info("RabbitMQ consumers started")
         except Exception as mq_error:
             logger.warning("RabbitMQ connection failed - message processing disabled", error=str(mq_error))
@@ -106,10 +110,13 @@ async def lifespan(app: FastAPI):
             
             consumer = await get_article_consumer()
             chunk_search_consumer = await get_chunk_search_consumer()
+            query_search_consumer = await get_query_search_consumer()
             await consumer.stop_consuming()
             await chunk_search_consumer.stop_consuming()
+            await query_search_consumer.stop_consuming()
             await consumer.disconnect()
             await chunk_search_consumer.disconnect()
+            await query_search_consumer.disconnect()
         except Exception as e:
             logger.error("Error during service shutdown", error=str(e))
 
@@ -192,7 +199,8 @@ async def detailed_health_check(
     vectordb_svc: VectorDBService = Depends(get_vectordb_service),
     database_svc: DatabaseService = Depends(get_database_service),
     consumer = Depends(get_article_consumer),
-    chunk_search_consumer = Depends(get_chunk_search_consumer)
+    chunk_search_consumer = Depends(get_chunk_search_consumer),
+    query_search_consumer = Depends(get_query_search_consumer)
 ):
     """Detailed health check with dependency status."""
     dependencies = []
@@ -260,6 +268,22 @@ async def detailed_health_check(
     except Exception as e:
         dependencies.append(DependencyHealth(
             name="rabbitmq_chunk_search_consumer",
+            status="unavailable",
+            response_time=None,
+            error=f"Service not initialized: {str(e)}"
+        ))
+    
+    try:
+        query_search_health = await query_search_consumer.health_check()
+        dependencies.append(DependencyHealth(
+            name="rabbitmq_query_search_consumer",
+            status=query_search_health["status"],
+            response_time=None,
+            error=query_search_health.get("error")
+        ))
+    except Exception as e:
+        dependencies.append(DependencyHealth(
+            name="rabbitmq_query_search_consumer",
             status="unavailable",
             response_time=None,
             error=f"Service not initialized: {str(e)}"

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/owenHochwald/rec-mind-api/config"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
+	"rec-mind/config"
+	"rec-mind/internal/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

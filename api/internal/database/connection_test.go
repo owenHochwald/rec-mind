@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/owenHochwald/rec-mind-api/config"
+	"rec-mind/config"
 )
 
 func TestNewConnection_Success(t *testing.T) {

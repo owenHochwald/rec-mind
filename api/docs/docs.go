@@ -1328,6 +1328,246 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/search/health": {
+            "get": {
+                "description": "Check the health of search service dependencies",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search service health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "rabbitmq_status": {
+                                    "type": "string"
+                                },
+                                "redis_status": {
+                                    "type": "string"
+                                },
+                                "service": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "rabbitmq_status": {
+                                    "type": "string"
+                                },
+                                "redis_status": {
+                                    "type": "string"
+                                },
+                                "service": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/search/immediate": {
+            "post": {
+                "description": "Search for articles matching a text query, with optional polling for faster response",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search articles with immediate response",
+                "parameters": [
+                    {
+                        "description": "Search query data",
+                        "name": "query",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.QuerySearchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.QueryRecommendationResult"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.QuerySearchJobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/search/jobs/{job_id}": {
+            "get": {
+                "description": "Get the status and results of a query search job by job ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Get search job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.QueryRecommendationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "job_id": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/search/recommendations": {
+            "post": {
+                "description": "Create an async search job to find articles matching a text query using semantic similarity",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search articles by text query",
+                "parameters": [
+                    {
+                        "description": "Search query data",
+                        "name": "query",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.QuerySearchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.QuerySearchJobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Returns overall system health including database and Python service status",
@@ -1422,6 +1662,51 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.QuerySearchJobResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "poll_url": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.QuerySearchRequest": {
+            "type": "object",
+            "required": [
+                "query"
+            ],
+            "properties": {
+                "correlation_id": {
+                    "type": "string"
+                },
+                "max_results": {
+                    "type": "integer"
+                },
+                "query": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "minLength": 1
+                },
+                "score_threshold": {
+                    "type": "number"
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.RecommendationJobResponse": {
             "type": "object",
             "properties": {
@@ -1488,6 +1773,38 @@ const docTemplate = `{
                 },
                 "score": {
                     "type": "number"
+                }
+            }
+        },
+        "database.QueryRecommendationResult": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "processing_time": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.ArticleRecommendation"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_found": {
+                    "type": "integer"
                 }
             }
         },

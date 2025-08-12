@@ -11,6 +11,36 @@ definitions:
     required:
     - article_id
     type: object
+  controllers.QuerySearchJobResponse:
+    properties:
+      created_at:
+        type: string
+      job_id:
+        type: string
+      message:
+        type: string
+      poll_url:
+        type: string
+      status:
+        type: string
+    type: object
+  controllers.QuerySearchRequest:
+    properties:
+      correlation_id:
+        type: string
+      max_results:
+        type: integer
+      query:
+        maxLength: 1000
+        minLength: 1
+        type: string
+      score_threshold:
+        type: number
+      session_id:
+        type: string
+    required:
+    - query
+    type: object
   controllers.RecommendationJobResponse:
     properties:
       created_at:
@@ -55,6 +85,27 @@ definitions:
         type: string
       score:
         type: number
+    type: object
+  database.QueryRecommendationResult:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      job_id:
+        type: string
+      processing_time:
+        type: string
+      query:
+        type: string
+      recommendations:
+        items:
+          $ref: '#/definitions/database.ArticleRecommendation'
+        type: array
+      status:
+        type: string
+      total_found:
+        type: integer
     type: object
   database.RecommendationResult:
     properties:
@@ -970,6 +1021,163 @@ paths:
       summary: Recommendation service health
       tags:
       - recommendations
+  /api/v1/search/health:
+    get:
+      description: Check the health of search service dependencies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              rabbitmq_status:
+                type: string
+              redis_status:
+                type: string
+              service:
+                type: string
+              status:
+                type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            properties:
+              rabbitmq_status:
+                type: string
+              redis_status:
+                type: string
+              service:
+                type: string
+              status:
+                type: string
+            type: object
+      summary: Search service health
+      tags:
+      - search
+  /api/v1/search/immediate:
+    post:
+      consumes:
+      - application/json
+      description: Search for articles matching a text query, with optional polling
+        for faster response
+      parameters:
+      - description: Search query data
+        in: body
+        name: query
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.QuerySearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/database.QueryRecommendationResult'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/controllers.QuerySearchJobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Search articles with immediate response
+      tags:
+      - search
+  /api/v1/search/jobs/{job_id}:
+    get:
+      description: Get the status and results of a query search job by job ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/database.QueryRecommendationResult'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              job_id:
+                type: string
+              message:
+                type: string
+              status:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get search job status
+      tags:
+      - search
+  /api/v1/search/recommendations:
+    post:
+      consumes:
+      - application/json
+      description: Create an async search job to find articles matching a text query
+        using semantic similarity
+      parameters:
+      - description: Search query data
+        in: body
+        name: query
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.QuerySearchRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/controllers.QuerySearchJobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Search articles by text query
+      tags:
+      - search
   /health:
     get:
       consumes:

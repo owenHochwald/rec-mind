@@ -101,6 +101,32 @@ func InitRabbitMQ() {
 		log.Fatalf("Failed to declare search_results queue: %v", err)
 	}
 
+	// Declare query_search_jobs queue
+	_, err = ch.QueueDeclare(
+		"query_search_jobs", // queue name
+		true,                // durable
+		false,               // auto-delete
+		false,               // exclusive
+		false,               // no-wait
+		nil,                 // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare query_search_jobs queue: %v", err)
+	}
+
+	// Declare query_search queue
+	_, err = ch.QueueDeclare(
+		"query_search", // queue name
+		true,           // durable
+		false,          // auto-delete
+		false,          // exclusive
+		false,          // no-wait
+		nil,            // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare query_search queue: %v", err)
+	}
+
 	MQConn = conn
 	MQChannel = ch
 	log.Println("🐰 RabbitMQ connection initialized")
@@ -118,6 +144,60 @@ func PublishEvent(body string) error {
 		},
 	)
 	return err
+}
+
+// PublishQuerySearchJob publishes a query search job to the jobs queue
+func PublishQuerySearchJob(job database.QuerySearchJob) error {
+	messageBytes, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal query search job: %w", err)
+	}
+
+	err = MQChannel.Publish(
+		"",                  // exchange
+		"query_search_jobs", // routing key (queue name)
+		false,               // mandatory
+		false,               // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         messageBytes,
+			DeliveryMode: 2, // persistent
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to publish query search job: %w", err)
+	}
+
+	log.Printf("📤 Published query search job %s for query: %s", job.JobID, job.Query)
+	return nil
+}
+
+// PublishQuerySearch publishes a query search message to the search queue
+func PublishQuerySearch(message database.QuerySearchMessage) error {
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal query search message: %w", err)
+	}
+
+	err = MQChannel.Publish(
+		"",             // exchange
+		"query_search", // routing key (queue name)
+		false,          // mandatory
+		false,          // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         messageBytes,
+			DeliveryMode: 2, // persistent
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to publish query search message: %w", err)
+	}
+
+	log.Printf("📤 Published query search %s for query: %s", message.SearchID, message.Query)
+	return nil
 }
 
 // PublishArticleProcessing publishes an article to the processing queue for chunking and embedding
