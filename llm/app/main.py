@@ -25,6 +25,7 @@ from .vectordb import get_vectordb_service, VectorDBService
 from .chunking import get_chunking_service, ChunkingService
 from .database import get_database_service, DatabaseService
 from .mq_consumer import get_article_consumer, start_article_processing
+from .chunk_search_consumer import get_chunk_search_consumer, start_chunk_search_processing
 from .utils import endpoint_error_handler
 
 
@@ -75,13 +76,16 @@ async def lifespan(app: FastAPI):
         except Exception as db_error:
             logger.warning("PostgreSQL connection failed - article chunking storage disabled", error=str(db_error))
         
-        # Initialize RabbitMQ consumer
+        # Initialize RabbitMQ consumers
         consumer = await get_article_consumer()
+        chunk_search_consumer = await get_chunk_search_consumer()
         try:
             await consumer.connect()
-            # Start article processing consumer as background task
+            await chunk_search_consumer.connect()
+            # Start consumers as background tasks
             asyncio.create_task(start_article_processing())
-            logger.info("RabbitMQ consumer started")
+            asyncio.create_task(start_chunk_search_processing())
+            logger.info("RabbitMQ consumers started")
         except Exception as mq_error:
             logger.warning("RabbitMQ connection failed - message processing disabled", error=str(mq_error))
         
@@ -101,8 +105,11 @@ async def lifespan(app: FastAPI):
             await database_svc.close()
             
             consumer = await get_article_consumer()
+            chunk_search_consumer = await get_chunk_search_consumer()
             await consumer.stop_consuming()
+            await chunk_search_consumer.stop_consuming()
             await consumer.disconnect()
+            await chunk_search_consumer.disconnect()
         except Exception as e:
             logger.error("Error during service shutdown", error=str(e))
 
@@ -184,7 +191,8 @@ async def detailed_health_check(
     embeddings_svc: EmbeddingsService = Depends(get_embeddings_service),
     vectordb_svc: VectorDBService = Depends(get_vectordb_service),
     database_svc: DatabaseService = Depends(get_database_service),
-    consumer = Depends(get_article_consumer)
+    consumer = Depends(get_article_consumer),
+    chunk_search_consumer = Depends(get_chunk_search_consumer)
 ):
     """Detailed health check with dependency status."""
     dependencies = []
@@ -224,18 +232,34 @@ async def detailed_health_check(
             error=f"Service not initialized: {str(e)}"
         ))
     
-    # Check RabbitMQ consumer status
+    # Check RabbitMQ consumers status
     try:
         consumer_health = await consumer.health_check()
         dependencies.append(DependencyHealth(
-            name="rabbitmq_consumer",
+            name="rabbitmq_article_consumer",
             status=consumer_health["status"],
             response_time=None,
             error=consumer_health.get("error")
         ))
     except Exception as e:
         dependencies.append(DependencyHealth(
-            name="rabbitmq_consumer",
+            name="rabbitmq_article_consumer",
+            status="unavailable",
+            response_time=None,
+            error=f"Service not initialized: {str(e)}"
+        ))
+    
+    try:
+        chunk_search_health = await chunk_search_consumer.health_check()
+        dependencies.append(DependencyHealth(
+            name="rabbitmq_chunk_search_consumer",
+            status=chunk_search_health["status"],
+            response_time=None,
+            error=chunk_search_health.get("error")
+        ))
+    except Exception as e:
+        dependencies.append(DependencyHealth(
+            name="rabbitmq_chunk_search_consumer",
             status="unavailable",
             response_time=None,
             error=f"Service not initialized: {str(e)}"

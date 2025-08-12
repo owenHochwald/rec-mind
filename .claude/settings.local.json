@@ -15,7 +15,19 @@
       "Bash(swag init:*)",
       "Bash(touch:*)",
       "Bash(go mod:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(nc:*)",
+      "Bash(go run:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(make:*)",
+      "Bash(echo $GOPATH)",
+      "Bash(go env:*)",
+      "Bash(/Users/owenhochwald/go/bin/swag init -g server/main.go)",
+      "Bash(docker-compose:*)",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD=secret psql:*)"
     ],
     "deny": []
   }

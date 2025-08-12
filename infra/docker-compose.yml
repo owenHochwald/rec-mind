@@ -31,5 +31,80 @@ services:
     env_file:
       - .env
 
+  # ML Service Instance 1
+  ml-service-1:
+    build: ../llm
+    container_name: recmind_ml_service_1
+    ports:
+      - "8001:8000"
+    environment:
+      - ML_SERVICE_INSTANCE_ID=1
+      - ML_SERVICE_HOST=0.0.0.0
+      - ML_SERVICE_PORT=8000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=secret
+      - DB_HOST=postgres
+    depends_on:
+      - rabbitmq
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ML Service Instance 2
+  ml-service-2:
+    build: ../llm
+    container_name: recmind_ml_service_2
+    ports:
+      - "8002:8000"
+    environment:
+      - ML_SERVICE_INSTANCE_ID=2
+      - ML_SERVICE_HOST=0.0.0.0
+      - ML_SERVICE_PORT=8000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=secret
+      - DB_HOST=postgres
+    depends_on:
+      - rabbitmq
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ML Service Instance 3
+  ml-service-3:
+    build: ../llm
+    container_name: recmind_ml_service_3
+    ports:
+      - "8003:8000"
+    environment:
+      - ML_SERVICE_INSTANCE_ID=3
+      - ML_SERVICE_HOST=0.0.0.0
+      - ML_SERVICE_PORT=8000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=secret
+      - DB_HOST=postgres
+    depends_on:
+      - rabbitmq
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:

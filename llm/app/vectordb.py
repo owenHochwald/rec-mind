@@ -124,6 +124,60 @@ class VectorDBService:
         wait=wait_exponential(multiplier=1, min=2, max=8),
         reraise=True
     )
+    async def search_similar_vectors(self, embedding: list, top_k: int = 5, score_threshold: float = 0.7, exclude_article_id: str = None) -> Dict[str, Any]:
+        """Search for similar vectors using a provided embedding."""
+        try:
+            start_time = time.time()
+            index = self._get_index()
+            
+            logger.info("Searching similar vectors with embedding", top_k=top_k, threshold=score_threshold)
+            
+            # Build filter to exclude specific article if provided
+            filter_dict = {}
+            if exclude_article_id:
+                filter_dict = {"article_id": {"$ne": exclude_article_id}}
+            
+            # Perform similarity search
+            search_response = index.query(
+                vector=embedding,
+                top_k=top_k,
+                include_metadata=True,
+                include_values=False,
+                filter=filter_dict if filter_dict else None
+            )
+            
+            # Apply score threshold filter
+            filtered_matches = [
+                match for match in search_response.matches 
+                if match.score >= score_threshold
+            ]
+            
+            search_time = time.time() - start_time
+            
+            logger.info("Similar vectors search completed", 
+                       results_found=len(filtered_matches), search_time=search_time)
+            
+            return {
+                "matches": [
+                    {
+                        "id": match.id,
+                        "score": match.score,
+                        "metadata": match.metadata
+                    }
+                    for match in filtered_matches
+                ],
+                "processing_time": search_time
+            }
+            
+        except Exception as e:
+            logger.error("Failed to search similar vectors with embedding", error=str(e))
+            raise
+
+    @retry(
+        stop=stop_after_attempt(settings.max_retries),
+        wait=wait_exponential(multiplier=1, min=2, max=8),
+        reraise=True
+    )
     async def search_similar(self, request: PineconeSearchRequest) -> PineconeSearchResponse:
         """Search for similar vectors in Pinecone."""
         try:

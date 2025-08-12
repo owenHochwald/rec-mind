@@ -132,3 +132,42 @@ class ArticleProcessingResponse(BaseModel):
     embeddings_generated: int = Field(..., ge=0, description="Number of embeddings generated")
     processing_time: float = Field(..., ge=0, description="Total processing time in seconds")
     status: str = Field(..., description="Processing status")
+
+
+class ChunkSearchMessage(BaseModel):
+    """Message model for chunk similarity search requests."""
+    search_id: UUID = Field(..., description="Unique search identifier")
+    chunk_id: UUID = Field(..., description="Source chunk ID for similarity search")
+    source_article_id: UUID = Field(..., description="Source article ID to exclude from results")
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of similar chunks to return")
+    score_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Minimum similarity score")
+    service_instance_id: Optional[str] = Field(default=None, description="Processing service instance ID")
+
+
+class ChunkSearchResult(BaseModel):
+    """Individual chunk search result."""
+    chunk_id: str = Field(..., description="Chunk ID")
+    similarity_score: float = Field(..., description="Similarity score")
+    article_id: UUID = Field(..., description="Article ID containing the chunk")
+    chunk_index: int = Field(..., description="Chunk index within article")
+    article_title: str = Field(..., description="Article title")
+    category: str = Field(..., description="Article category")
+    content_preview: str = Field(..., description="Chunk content preview")
+
+
+class ChunkSearchResponse(BaseModel):
+    """Response model for chunk similarity search results."""
+    search_id: UUID = Field(..., description="Search identifier")
+    source_chunk_id: UUID = Field(..., description="Source chunk ID")
+    results: List[ChunkSearchResult] = Field(..., description="Similar chunks")
+    total_found: int = Field(..., description="Total results found")
+    processing_time: float = Field(..., description="Search processing time")
+    service_instance_id: str = Field(..., description="Processing service instance")
+
+
+class ChunkSearchError(BaseModel):
+    """Error model for failed chunk searches."""
+    search_id: UUID = Field(..., description="Search identifier")
+    error_message: str = Field(..., description="Error description")
+    error_code: str = Field(..., description="Error code")
+    service_instance_id: str = Field(..., description="Processing service instance")
