@@ -19,6 +19,7 @@ go.work
 # Environment variables
 .env.local
 .env.production
+settings.local.json
 
 # IDE files
 .vscode/
@@ -46,3 +47,4 @@ llm/.env.example
 
 .claude/
 .claude/*
+.claude/settings.local.json
