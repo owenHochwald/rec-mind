@@ -8,6 +8,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/joho/godotenv"
+	"rec-mind/internal/database"
 )
 
 var MQConn *amqp.Connection
@@ -61,6 +62,45 @@ func InitRabbitMQ() {
 		log.Fatalf("Failed to declare article_processing queue: %v", err)
 	}
 
+	// Declare recommendation_jobs queue
+	_, err = ch.QueueDeclare(
+		"recommendation_jobs", // queue name
+		true,                  // durable
+		false,                 // auto-delete
+		false,                 // exclusive
+		false,                 // no-wait
+		nil,                   // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare recommendation_jobs queue: %v", err)
+	}
+
+	// Declare chunk_search queue
+	_, err = ch.QueueDeclare(
+		"chunk_search", // queue name
+		true,           // durable
+		false,          // auto-delete
+		false,          // exclusive
+		false,          // no-wait
+		nil,            // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare chunk_search queue: %v", err)
+	}
+
+	// Declare search_results queue
+	_, err = ch.QueueDeclare(
+		"search_results", // queue name
+		true,             // durable
+		false,            // auto-delete
+		false,            // exclusive
+		false,            // no-wait
+		nil,              // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare search_results queue: %v", err)
+	}
+
 	MQConn = conn
 	MQChannel = ch
 	log.Println("🐰 RabbitMQ connection initialized")
@@ -112,5 +152,59 @@ func PublishArticleProcessing(articleID, title, content, category string, create
 	}
 	
 	log.Printf("📨 Published article %s to processing queue", articleID)
+	return nil
+}
+
+// PublishRecommendationJob publishes a recommendation job to the jobs queue
+func PublishRecommendationJob(job database.RecommendationJob) error {
+	messageBytes, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal recommendation job: %w", err)
+	}
+
+	err = MQChannel.Publish(
+		"",                    // exchange
+		"recommendation_jobs", // routing key (queue name)
+		false,                 // mandatory
+		false,                 // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         messageBytes,
+			DeliveryMode: 2, // persistent
+		},
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to publish recommendation job: %w", err)
+	}
+	
+	log.Printf("📨 Published recommendation job %s", job.JobID)
+	return nil
+}
+
+// PublishChunkSearch publishes a chunk search message to the search queue
+func PublishChunkSearch(message database.ChunkSearchMessage) error {
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal chunk search message: %w", err)
+	}
+
+	err = MQChannel.Publish(
+		"",            // exchange
+		"chunk_search", // routing key (queue name)
+		false,         // mandatory
+		false,         // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         messageBytes,
+			DeliveryMode: 2, // persistent
+		},
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to publish chunk search: %w", err)
+	}
+	
+	log.Printf("📨 Published chunk search %s for job %s", message.SearchID, message.JobID)
 	return nil
 }
