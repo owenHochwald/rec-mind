@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/owenHochwald/rec-mind-api/internal/services"
+	"rec-mind/internal/services"
 )
 
 // ScrapeArticles triggers RSS feed scraping

@@ -13,9 +13,9 @@ import (
 	"github.com/mmcdole/gofeed"
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"github.com/owenHochwald/rec-mind-api/config"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
+	"rec-mind/config"
+	"rec-mind/internal/database"
+	"rec-mind/internal/repository"
 )
 
 // ArticleProcessingMessage represents the message sent to RabbitMQ for article processing

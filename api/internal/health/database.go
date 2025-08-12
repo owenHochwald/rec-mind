@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/owenHochwald/rec-mind-api/internal/database"
+	"rec-mind/internal/database"
 )
 
 type DatabaseHealth struct {

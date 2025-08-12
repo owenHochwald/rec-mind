@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/owenHochwald/rec-mind-api/config"
+	"rec-mind/config"
 )
 
 type DB struct {

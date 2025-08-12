@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
+	"rec-mind/internal/database"
+	"rec-mind/internal/repository"
 )
 
 // CreateArticleChunk creates a new chunk for an article

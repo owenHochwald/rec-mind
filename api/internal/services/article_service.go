@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/mlclient"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
-	"github.com/owenHochwald/rec-mind-api/mq"
+	"rec-mind/internal/database"
+	"rec-mind/internal/mlclient"
+	"rec-mind/internal/repository"
+	"rec-mind/mq"
 )
 
 // ArticleService handles article processing with ML integration

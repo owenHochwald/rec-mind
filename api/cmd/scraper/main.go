@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/owenHochwald/rec-mind-api/config"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
-	"github.com/owenHochwald/rec-mind-api/internal/services"
-	"github.com/owenHochwald/rec-mind-api/mq"
+	"rec-mind/config"
+	"rec-mind/internal/database"
+	"rec-mind/internal/repository"
+	"rec-mind/internal/services"
+	"rec-mind/mq"
 )
 
 func main() {

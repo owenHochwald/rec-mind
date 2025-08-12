@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
-	"github.com/owenHochwald/rec-mind-api/internal/services"
+	"rec-mind/internal/database"
+	"rec-mind/internal/repository"
+	"rec-mind/internal/services"
 )
 
 

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/health"
+	"rec-mind/internal/database"
+	"rec-mind/internal/health"
 )
 
 // PythonHealthResponse represents the health check response from Python service
