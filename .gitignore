@@ -48,3 +48,4 @@ llm/.env.example
 .claude/
 .claude/*
 .claude/settings.local.json
+CLAUDE.md
