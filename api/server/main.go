@@ -21,17 +21,18 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/owenHochwald/rec-mind-api/config"
-	"github.com/owenHochwald/rec-mind-api/controllers"
-	"github.com/owenHochwald/rec-mind-api/handlers"
-	"github.com/owenHochwald/rec-mind-api/internal/database"
-	"github.com/owenHochwald/rec-mind-api/internal/mlclient"
-	"github.com/owenHochwald/rec-mind-api/internal/repository"
-	"github.com/owenHochwald/rec-mind-api/internal/services"
-	"github.com/owenHochwald/rec-mind-api/mq"
+	"rec-mind/config"
+	"rec-mind/controllers"
+	"rec-mind/handlers"
+	"rec-mind/internal/database"
+	"rec-mind/internal/mlclient"
+	"rec-mind/internal/redis"
+	"rec-mind/internal/repository"
+	"rec-mind/internal/services"
+	"rec-mind/mq"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	_ "github.com/owenHochwald/rec-mind-api/docs"
+	_ "rec-mind/docs"
 )
 
 func main() {
@@ -60,6 +61,12 @@ func main() {
 
 	// Initialize article service with ML integration
 	articleService := services.NewArticleService(articleRepo, mlClient)
+
+	// Initialize Redis connection
+	if err := redis.InitRedis(); err != nil {
+		log.Fatalf("Failed to initialize Redis: %v", err)
+	}
+	defer redis.CloseRedis()
 
 	// Initialize message queue
 	mq.InitRabbitMQ()
@@ -103,6 +110,13 @@ func main() {
 	r.GET("/api/v1/articles/:id/chunks/:index", getArticleChunkByIndex(chunkRepo))
 	r.GET("/api/v1/articles/:id/chunks", getArticleChunks(chunkRepo))
 	r.DELETE("/api/v1/articles/:id/chunks", deleteArticleChunks(chunkRepo))
+
+	// Recommendation endpoints
+	recommendationController := controllers.NewRecommendationController()
+	r.POST("/api/v1/recommendations", recommendationController.CreateRecommendationJob)
+	r.GET("/api/v1/articles/:id/recommend", recommendationController.GetRecommendations)
+	r.GET("/api/v1/jobs/:job_id", recommendationController.GetRecommendationJobStatus)
+	r.GET("/api/v1/recommendations/health", recommendationController.HealthCheck)
 
 	log.Println("✅ Server ready on :8080")
 	log.Println("📚 Swagger UI available at: http://localhost:8080/swagger/index.html")
