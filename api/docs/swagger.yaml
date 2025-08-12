@@ -1,5 +1,82 @@
 basePath: /
 definitions:
+  controllers.CreateRecommendationJobRequest:
+    properties:
+      article_id:
+        type: string
+      correlation_id:
+        type: string
+      session_id:
+        type: string
+    required:
+    - article_id
+    type: object
+  controllers.RecommendationJobResponse:
+    properties:
+      created_at:
+        type: string
+      job_id:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  database.ArticleRecommendation:
+    properties:
+      article_id:
+        type: string
+      avg_similarity:
+        type: number
+      category:
+        type: string
+      chunk_matches:
+        items:
+          $ref: '#/definitions/database.ChunkMatch'
+        type: array
+      hybrid_score:
+        type: number
+      matched_chunks:
+        type: integer
+      max_similarity:
+        type: number
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  database.ChunkMatch:
+    properties:
+      chunk_id:
+        type: string
+      chunk_index:
+        type: integer
+      content_preview:
+        type: string
+      score:
+        type: number
+    type: object
+  database.RecommendationResult:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      job_id:
+        type: string
+      processing_time:
+        type: string
+      recommendations:
+        items:
+          $ref: '#/definitions/database.ArticleRecommendation'
+        type: array
+      source_article_id:
+        type: string
+      status:
+        type: string
+      total_found:
+        type: integer
+    type: object
   handlers.DetailedHealthResponse:
     properties:
       database: {}
@@ -476,6 +553,52 @@ paths:
       summary: Get article chunk by index
       tags:
       - chunks
+  /api/v1/articles/{id}/recommend:
+    get:
+      description: Get recommendations for an article using RAG-based similarity search
+      parameters:
+      - description: Article ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/database.RecommendationResult'
+        "202":
+          description: Accepted
+          schema:
+            properties:
+              job_id:
+                type: string
+              message:
+                type: string
+              poll_url:
+                type: string
+              status:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get article recommendations
+      tags:
+      - recommendations
   /api/v1/chunks:
     get:
       description: Get a paginated list of article chunks with optional filtering
@@ -732,6 +855,121 @@ paths:
       summary: Create multiple article chunks
       tags:
       - chunks
+  /api/v1/jobs/{job_id}:
+    get:
+      description: Get the status and results of a recommendation job by job ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/database.RecommendationResult'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              job_id:
+                type: string
+              message:
+                type: string
+              status:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get recommendation job status
+      tags:
+      - recommendations
+  /api/v1/recommendations:
+    post:
+      consumes:
+      - application/json
+      description: Create an async recommendation job for article similarity search
+      parameters:
+      - description: Recommendation job data
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.CreateRecommendationJobRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/controllers.RecommendationJobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Create recommendation job
+      tags:
+      - recommendations
+  /api/v1/recommendations/health:
+    get:
+      description: Check the health of recommendation service dependencies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              rabbitmq_status:
+                type: string
+              redis_status:
+                type: string
+              service:
+                type: string
+              status:
+                type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            properties:
+              rabbitmq_status:
+                type: string
+              redis_status:
+                type: string
+              service:
+                type: string
+              status:
+                type: string
+            type: object
+      summary: Recommendation service health
+      tags:
+      - recommendations
   /health:
     get:
       consumes:

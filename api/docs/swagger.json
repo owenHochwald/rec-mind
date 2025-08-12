@@ -679,6 +679,77 @@
                 }
             }
         },
+        "/api/v1/articles/{id}/recommend": {
+            "get": {
+                "description": "Get recommendations for an article using RAG-based similarity search",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get article recommendations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Article ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.RecommendationResult"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "job_id": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "poll_url": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/chunks": {
             "get": {
                 "description": "Get a paginated list of article chunks with optional filtering",
@@ -1076,6 +1147,184 @@
                 }
             }
         },
+        "/api/v1/jobs/{job_id}": {
+            "get": {
+                "description": "Get the status and results of a recommendation job by job ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Get recommendation job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/database.RecommendationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "job_id": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/recommendations": {
+            "post": {
+                "description": "Create an async recommendation job for article similarity search",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Create recommendation job",
+                "parameters": [
+                    {
+                        "description": "Recommendation job data",
+                        "name": "job",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.CreateRecommendationJobRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.RecommendationJobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/recommendations/health": {
+            "get": {
+                "description": "Check the health of recommendation service dependencies",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recommendations"
+                ],
+                "summary": "Recommendation service health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "rabbitmq_status": {
+                                    "type": "string"
+                                },
+                                "redis_status": {
+                                    "type": "string"
+                                },
+                                "service": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "rabbitmq_status": {
+                                    "type": "string"
+                                },
+                                "redis_status": {
+                                    "type": "string"
+                                },
+                                "service": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Returns overall system health including database and Python service status",
@@ -1153,6 +1402,124 @@
         }
     },
     "definitions": {
+        "controllers.CreateRecommendationJobRequest": {
+            "type": "object",
+            "required": [
+                "article_id"
+            ],
+            "properties": {
+                "article_id": {
+                    "type": "string"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.RecommendationJobResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "database.ArticleRecommendation": {
+            "type": "object",
+            "properties": {
+                "article_id": {
+                    "type": "string"
+                },
+                "avg_similarity": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "chunk_matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.ChunkMatch"
+                    }
+                },
+                "hybrid_score": {
+                    "type": "number"
+                },
+                "matched_chunks": {
+                    "type": "integer"
+                },
+                "max_similarity": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "database.ChunkMatch": {
+            "type": "object",
+            "properties": {
+                "chunk_id": {
+                    "type": "string"
+                },
+                "chunk_index": {
+                    "type": "integer"
+                },
+                "content_preview": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "database.RecommendationResult": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "processing_time": {
+                    "type": "string"
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/database.ArticleRecommendation"
+                    }
+                },
+                "source_article_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_found": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.DetailedHealthResponse": {
             "type": "object",
             "properties": {
