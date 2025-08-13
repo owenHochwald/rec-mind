@@ -71,31 +71,21 @@ func main() {
 	// Initialize message queue
 	mq.InitRabbitMQ()
 
-	// Initialize scraper service
-	scraperService := services.NewScraperService(articleRepo, mq.MQChannel)
-
 	// Setup Gin router
 	r := gin.Default()
 
 	// Swagger endpoint
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Health check endpoints
+	// Health check endpoint (consolidated)
 	r.GET("/health", handlers.SystemHealth(db, startTime))
-	r.GET("/health/detail", handlers.DetailedHealth(db, startTime))
-	r.GET("/health/python", handlers.CheckPythonHealth())
 
 	// API endpoints
 	r.POST("/api/upload", uploadArticle(articleService))
-	r.GET("/api/ml/health", checkMLHealth(articleService))
-
-	// Scraper endpoints
-	r.POST("/api/scrape", scrapeArticles(scraperService))
 
 	// Article management endpoints
 	r.GET("/api/v1/articles", listArticles(articleRepo))
 	r.GET("/api/v1/articles/:id", getArticle(articleRepo))
-	r.PUT("/api/v1/articles/:id", updateArticle(articleRepo))
 	r.DELETE("/api/v1/articles/:id", deleteArticle(articleRepo))
 
 	// Article chunks endpoints
@@ -103,20 +93,11 @@ func main() {
 	r.POST("/api/v1/chunks/batch", createArticleChunksBatch(chunkRepo))
 	r.GET("/api/v1/chunks", listArticleChunks(chunkRepo))
 	r.GET("/api/v1/chunks/:id", getArticleChunk(chunkRepo))
-	r.PUT("/api/v1/chunks/:id", updateArticleChunk(chunkRepo))
 	r.DELETE("/api/v1/chunks/:id", deleteArticleChunk(chunkRepo))
 	
 	// Article-specific chunks endpoints
-	r.GET("/api/v1/articles/:id/chunks/:index", getArticleChunkByIndex(chunkRepo))
 	r.GET("/api/v1/articles/:id/chunks", getArticleChunks(chunkRepo))
 	r.DELETE("/api/v1/articles/:id/chunks", deleteArticleChunks(chunkRepo))
-
-	// Recommendation endpoints
-	recommendationController := controllers.NewRecommendationController()
-	r.POST("/api/v1/recommendations", recommendationController.CreateRecommendationJob)
-	r.GET("/api/v1/articles/:id/recommend", recommendationController.GetRecommendations)
-	r.GET("/api/v1/jobs/:job_id", recommendationController.GetRecommendationJobStatus)
-	r.GET("/api/v1/recommendations/health", recommendationController.HealthCheck)
 
 	// Search endpoints (query-based recommendations)
 	searchController := controllers.NewSearchController()
@@ -147,30 +128,7 @@ func uploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 }
 
 
-// checkMLHealth checks the health of the ML service
-// @Summary Check ML service health
-// @Description Check if the Python ML service is available and ready for embedding generation
-// @Tags health
-// @Produce json
-// @Success 200 {object} object{ml_service_healthy=bool,message=string}
-// @Failure 503 {object} object{ml_service_healthy=bool,error=string}
-// @Router /api/ml/health [get]
-func checkMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
-	return controllers.CheckMLHealth(articleService)
-}
 
-// scrapeArticles triggers RSS feed scraping
-// @Summary Scrape RSS feeds for articles
-// @Description Scrape all configured RSS feeds, validate articles, and publish to processing queue
-// @Tags scraper
-// @Produce json
-// @Success 200 {object} object{success=bool,message=string,summary=object,feed_results=array}
-// @Success 207 {object} object{success=bool,message=string,summary=object,feed_results=array}
-// @Failure 500 {object} object{error=string,details=string}
-// @Router /api/scrape [post]
-func scrapeArticles(scraperService *services.ScraperService) gin.HandlerFunc {
-	return controllers.ScrapeArticles(scraperService)
-}
 
 
 // listArticles handles article listing with pagination
@@ -203,22 +161,6 @@ func getArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 	return controllers.GetArticle(repo)
 }
 
-// updateArticle handles article updates
-// @Summary Update article
-// @Description Update an existing article by its UUID
-// @Tags articles
-// @Accept json
-// @Produce json
-// @Param id path string true "Article UUID"
-// @Param article body object{title=string,content=string,url=string,category=string} true "Updated article data"
-// @Success 200 {object} object{message=string,article=object}
-// @Failure 400 {object} object{error=string}
-// @Failure 404 {object} object{error=string}
-// @Failure 500 {object} object{error=string}
-// @Router /api/v1/articles/{id} [put]
-func updateArticle(repo repository.ArticleRepository) gin.HandlerFunc {
-	return controllers.UpdateArticle(repo)
-}
 
 // deleteArticle handles article deletion
 // @Summary Delete article
@@ -294,21 +236,6 @@ func getArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
 	return controllers.GetArticleChunk(repo)
 }
 
-// updateArticleChunk handles chunk updates
-// @Summary Update article chunk
-// @Description Update an existing article chunk
-// @Tags chunks
-// @Accept json
-// @Produce json
-// @Param id path string true "Chunk UUID"
-// @Param chunk body object{content=string,token_count=int,character_count=int} true "Updated chunk data"
-// @Success 200 {object} object{chunk=object}
-// @Failure 400 {object} object{error=string}
-// @Failure 404 {object} object{error=string}
-// @Router /api/v1/chunks/{id} [put]
-func updateArticleChunk(repo repository.ArticleChunkRepository) gin.HandlerFunc {
-	return controllers.UpdateArticleChunk(repo)
-}
 
 // deleteArticleChunk handles chunk deletion
 // @Summary Delete article chunk
@@ -338,20 +265,6 @@ func getArticleChunks(repo repository.ArticleChunkRepository) gin.HandlerFunc {
 	return controllers.GetArticleChunks(repo)
 }
 
-// getArticleChunkByIndex handles retrieving a chunk by article and index
-// @Summary Get article chunk by index
-// @Description Retrieve a specific chunk by article ID and chunk index
-// @Tags chunks
-// @Produce json
-// @Param id path string true "Article UUID"
-// @Param index path int true "Chunk index"
-// @Success 200 {object} object{chunk=object}
-// @Failure 400 {object} object{error=string}
-// @Failure 404 {object} object{error=string}
-// @Router /api/v1/articles/{id}/chunks/{index} [get]
-func getArticleChunkByIndex(repo repository.ArticleChunkRepository) gin.HandlerFunc {
-	return controllers.GetArticleChunkByIndex(repo)
-}
 
 // deleteArticleChunks handles deleting all chunks for an article
 // @Summary Delete all chunks for an article
