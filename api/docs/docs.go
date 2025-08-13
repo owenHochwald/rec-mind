@@ -24,116 +24,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/ml/health": {
-            "get": {
-                "description": "Check if the Python ML service is available and ready for embedding generation",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "health"
-                ],
-                "summary": "Check ML service health",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "ml_service_healthy": {
-                                    "type": "boolean"
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                },
-                                "ml_service_healthy": {
-                                    "type": "boolean"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/scrape": {
-            "post": {
-                "description": "Scrape all configured RSS feeds, validate articles, and publish to processing queue",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "scraper"
-                ],
-                "summary": "Scrape RSS feeds for articles",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "feed_results": {
-                                    "type": "array"
-                                },
-                                "message": {
-                                    "type": "string"
-                                },
-                                "success": {
-                                    "type": "boolean"
-                                },
-                                "summary": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "207": {
-                        "description": "Multi-Status",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "feed_results": {
-                                    "type": "array"
-                                },
-                                "message": {
-                                    "type": "string"
-                                },
-                                "success": {
-                                    "type": "boolean"
-                                },
-                                "summary": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "details": {
-                                    "type": "string"
-                                },
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/upload": {
             "post": {
                 "description": "Upload a new article to the system and automatically generate embeddings using the Python ML service",
@@ -346,100 +236,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "description": "Update an existing article by its UUID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "articles"
-                ],
-                "summary": "Update article",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Article UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated article data",
-                        "name": "article",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "category": {
-                                    "type": "string"
-                                },
-                                "content": {
-                                    "type": "string"
-                                },
-                                "title": {
-                                    "type": "string"
-                                },
-                                "url": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "article": {
-                                    "type": "object"
-                                },
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
             "delete": {
                 "description": "Delete an article by its UUID",
                 "produces": [
@@ -589,140 +385,6 @@ const docTemplate = `{
                             "type": "object",
                             "properties": {
                                 "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/articles/{id}/chunks/{index}": {
-            "get": {
-                "description": "Retrieve a specific chunk by article ID and chunk index",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chunks"
-                ],
-                "summary": "Get article chunk by index",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Article UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Chunk index",
-                        "name": "index",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "chunk": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/articles/{id}/recommend": {
-            "get": {
-                "description": "Get recommendations for an article using RAG-based similarity search",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "recommendations"
-                ],
-                "summary": "Get article recommendations",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Article ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/database.RecommendationResult"
-                        }
-                    },
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "job_id": {
-                                    "type": "string"
-                                },
-                                "message": {
-                                    "type": "string"
-                                },
-                                "poll_url": {
-                                    "type": "string"
-                                },
-                                "status": {
                                     "type": "string"
                                 }
                             }
@@ -1018,83 +680,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "description": "Update an existing article chunk",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chunks"
-                ],
-                "summary": "Update article chunk",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Chunk UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated chunk data",
-                        "name": "chunk",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "character_count": {
-                                    "type": "integer"
-                                },
-                                "content": {
-                                    "type": "string"
-                                },
-                                "token_count": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "chunk": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
             "delete": {
                 "description": "Delete a specific article chunk by its UUID",
                 "produces": [
@@ -1142,184 +727,6 @@ const docTemplate = `{
                             "type": "object",
                             "properties": {
                                 "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/jobs/{job_id}": {
-            "get": {
-                "description": "Get the status and results of a recommendation job by job ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "recommendations"
-                ],
-                "summary": "Get recommendation job status",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/database.RecommendationResult"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "job_id": {
-                                    "type": "string"
-                                },
-                                "message": {
-                                    "type": "string"
-                                },
-                                "status": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/recommendations": {
-            "post": {
-                "description": "Create an async recommendation job for article similarity search",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "recommendations"
-                ],
-                "summary": "Create recommendation job",
-                "parameters": [
-                    {
-                        "description": "Recommendation job data",
-                        "name": "job",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/controllers.CreateRecommendationJobRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.RecommendationJobResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/recommendations/health": {
-            "get": {
-                "description": "Check the health of recommendation service dependencies",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "recommendations"
-                ],
-                "summary": "Recommendation service health",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "rabbitmq_status": {
-                                    "type": "string"
-                                },
-                                "redis_status": {
-                                    "type": "string"
-                                },
-                                "service": {
-                                    "type": "string"
-                                },
-                                "status": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "rabbitmq_status": {
-                                    "type": "string"
-                                },
-                                "redis_status": {
-                                    "type": "string"
-                                },
-                                "service": {
-                                    "type": "string"
-                                },
-                                "status": {
                                     "type": "string"
                                 }
                             }
@@ -1570,74 +977,25 @@ const docTemplate = `{
         },
         "/health": {
             "get": {
-                "description": "Returns overall system health including database and Python service status",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Returns health status for all system components including database, Redis, RabbitMQ, and Python ML service",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "health"
                 ],
-                "summary": "System health check",
+                "summary": "Comprehensive system health check",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.SystemHealthResponse"
+                            "$ref": "#/definitions/handlers.HealthResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/handlers.SystemHealthResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/health/detail": {
-            "get": {
-                "description": "Returns detailed health information for all system components",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "health"
-                ],
-                "summary": "Detailed health check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DetailedHealthResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/health/python": {
-            "get": {
-                "description": "Checks if the Python FastAPI service is reachable and healthy",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "health"
-                ],
-                "summary": "Check Python service health",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.PythonHealthResponse"
+                            "$ref": "#/definitions/handlers.HealthResponse"
                         }
                     }
                 }
@@ -1645,23 +1003,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "controllers.CreateRecommendationJobRequest": {
-            "type": "object",
-            "required": [
-                "article_id"
-            ],
-            "properties": {
-                "article_id": {
-                    "type": "string"
-                },
-                "correlation_id": {
-                    "type": "string"
-                },
-                "session_id": {
-                    "type": "string"
-                }
-            }
-        },
         "controllers.QuerySearchJobResponse": {
             "type": "object",
             "properties": {
@@ -1703,23 +1044,6 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "session_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "controllers.RecommendationJobResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "job_id": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 }
             }
@@ -1808,74 +1132,15 @@ const docTemplate = `{
                 }
             }
         },
-        "database.RecommendationResult": {
+        "handlers.HealthResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "dependencies": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "service": {
                     "type": "string"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "job_id": {
-                    "type": "string"
-                },
-                "processing_time": {
-                    "type": "string"
-                },
-                "recommendations": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/database.ArticleRecommendation"
-                    }
-                },
-                "source_article_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "total_found": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.DetailedHealthResponse": {
-            "type": "object",
-            "properties": {
-                "database": {},
-                "python": {
-                    "$ref": "#/definitions/handlers.PythonHealthResponse"
-                },
-                "uptime": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.PythonHealthResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "python_response": {},
-                "python_service_reachable": {
-                    "type": "boolean"
-                },
-                "response_time": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.SystemHealthResponse": {
-            "type": "object",
-            "properties": {
-                "database": {},
-                "python": {
-                    "$ref": "#/definitions/handlers.PythonHealthResponse"
                 },
                 "status": {
                     "type": "string"

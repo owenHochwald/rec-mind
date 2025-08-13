@@ -1,16 +1,5 @@
 basePath: /
 definitions:
-  controllers.CreateRecommendationJobRequest:
-    properties:
-      article_id:
-        type: string
-      correlation_id:
-        type: string
-      session_id:
-        type: string
-    required:
-    - article_id
-    type: object
   controllers.QuerySearchJobResponse:
     properties:
       created_at:
@@ -40,17 +29,6 @@ definitions:
         type: string
     required:
     - query
-    type: object
-  controllers.RecommendationJobResponse:
-    properties:
-      created_at:
-        type: string
-      job_id:
-        type: string
-      message:
-        type: string
-      status:
-        type: string
     type: object
   database.ArticleRecommendation:
     properties:
@@ -107,52 +85,13 @@ definitions:
       total_found:
         type: integer
     type: object
-  database.RecommendationResult:
+  handlers.HealthResponse:
     properties:
-      created_at:
+      dependencies:
+        additionalProperties: true
+        type: object
+      service:
         type: string
-      error:
-        type: string
-      job_id:
-        type: string
-      processing_time:
-        type: string
-      recommendations:
-        items:
-          $ref: '#/definitions/database.ArticleRecommendation'
-        type: array
-      source_article_id:
-        type: string
-      status:
-        type: string
-      total_found:
-        type: integer
-    type: object
-  handlers.DetailedHealthResponse:
-    properties:
-      database: {}
-      python:
-        $ref: '#/definitions/handlers.PythonHealthResponse'
-      uptime:
-        type: string
-      version:
-        type: string
-    type: object
-  handlers.PythonHealthResponse:
-    properties:
-      error:
-        type: string
-      python_response: {}
-      python_service_reachable:
-        type: boolean
-      response_time:
-        type: string
-    type: object
-  handlers.SystemHealthResponse:
-    properties:
-      database: {}
-      python:
-        $ref: '#/definitions/handlers.PythonHealthResponse'
       status:
         type: string
       timestamp:
@@ -176,79 +115,6 @@ info:
   title: RecMind API
   version: "1.0"
 paths:
-  /api/ml/health:
-    get:
-      description: Check if the Python ML service is available and ready for embedding
-        generation
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              ml_service_healthy:
-                type: boolean
-            type: object
-        "503":
-          description: Service Unavailable
-          schema:
-            properties:
-              error:
-                type: string
-              ml_service_healthy:
-                type: boolean
-            type: object
-      summary: Check ML service health
-      tags:
-      - health
-  /api/scrape:
-    post:
-      description: Scrape all configured RSS feeds, validate articles, and publish
-        to processing queue
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              feed_results:
-                type: array
-              message:
-                type: string
-              success:
-                type: boolean
-              summary:
-                type: object
-            type: object
-        "207":
-          description: Multi-Status
-          schema:
-            properties:
-              feed_results:
-                type: array
-              message:
-                type: string
-              success:
-                type: boolean
-              summary:
-                type: object
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              details:
-                type: string
-              error:
-                type: string
-            type: object
-      summary: Scrape RSS feeds for articles
-      tags:
-      - scraper
   /api/upload:
     post:
       consumes:
@@ -429,67 +295,6 @@ paths:
       summary: Get article by ID
       tags:
       - articles
-    put:
-      consumes:
-      - application/json
-      description: Update an existing article by its UUID
-      parameters:
-      - description: Article UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Updated article data
-        in: body
-        name: article
-        required: true
-        schema:
-          properties:
-            category:
-              type: string
-            content:
-              type: string
-            title:
-              type: string
-            url:
-              type: string
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              article:
-                type: object
-              message:
-                type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Update article
-      tags:
-      - articles
   /api/v1/articles/{id}/chunks:
     delete:
       description: Delete all chunks belonging to a specific article
@@ -563,93 +368,6 @@ paths:
       summary: Get all chunks for an article
       tags:
       - chunks
-  /api/v1/articles/{id}/chunks/{index}:
-    get:
-      description: Retrieve a specific chunk by article ID and chunk index
-      parameters:
-      - description: Article UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Chunk index
-        in: path
-        name: index
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              chunk:
-                type: object
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Get article chunk by index
-      tags:
-      - chunks
-  /api/v1/articles/{id}/recommend:
-    get:
-      description: Get recommendations for an article using RAG-based similarity search
-      parameters:
-      - description: Article ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/database.RecommendationResult'
-        "202":
-          description: Accepted
-          schema:
-            properties:
-              job_id:
-                type: string
-              message:
-                type: string
-              poll_url:
-                type: string
-              status:
-                type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Get article recommendations
-      tags:
-      - recommendations
   /api/v1/chunks:
     get:
       description: Get a paginated list of article chunks with optional filtering
@@ -812,56 +530,6 @@ paths:
       summary: Get article chunk by ID
       tags:
       - chunks
-    put:
-      consumes:
-      - application/json
-      description: Update an existing article chunk
-      parameters:
-      - description: Chunk UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Updated chunk data
-        in: body
-        name: chunk
-        required: true
-        schema:
-          properties:
-            character_count:
-              type: integer
-            content:
-              type: string
-            token_count:
-              type: integer
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              chunk:
-                type: object
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Update article chunk
-      tags:
-      - chunks
   /api/v1/chunks/batch:
     post:
       consumes:
@@ -906,121 +574,6 @@ paths:
       summary: Create multiple article chunks
       tags:
       - chunks
-  /api/v1/jobs/{job_id}:
-    get:
-      description: Get the status and results of a recommendation job by job ID
-      parameters:
-      - description: Job ID
-        in: path
-        name: job_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/database.RecommendationResult'
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            properties:
-              job_id:
-                type: string
-              message:
-                type: string
-              status:
-                type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Get recommendation job status
-      tags:
-      - recommendations
-  /api/v1/recommendations:
-    post:
-      consumes:
-      - application/json
-      description: Create an async recommendation job for article similarity search
-      parameters:
-      - description: Recommendation job data
-        in: body
-        name: job
-        required: true
-        schema:
-          $ref: '#/definitions/controllers.CreateRecommendationJobRequest'
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Accepted
-          schema:
-            $ref: '#/definitions/controllers.RecommendationJobResponse'
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: Create recommendation job
-      tags:
-      - recommendations
-  /api/v1/recommendations/health:
-    get:
-      description: Check the health of recommendation service dependencies
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              rabbitmq_status:
-                type: string
-              redis_status:
-                type: string
-              service:
-                type: string
-              status:
-                type: string
-            type: object
-        "503":
-          description: Service Unavailable
-          schema:
-            properties:
-              rabbitmq_status:
-                type: string
-              redis_status:
-                type: string
-              service:
-                type: string
-              status:
-                type: string
-            type: object
-      summary: Recommendation service health
-      tags:
-      - recommendations
   /api/v1/search/health:
     get:
       description: Check the health of search service dependencies
@@ -1180,52 +733,20 @@ paths:
       - search
   /health:
     get:
-      consumes:
-      - application/json
-      description: Returns overall system health including database and Python service
-        status
+      description: Returns health status for all system components including database,
+        Redis, RabbitMQ, and Python ML service
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.SystemHealthResponse'
+            $ref: '#/definitions/handlers.HealthResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/handlers.SystemHealthResponse'
-      summary: System health check
-      tags:
-      - health
-  /health/detail:
-    get:
-      consumes:
-      - application/json
-      description: Returns detailed health information for all system components
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.DetailedHealthResponse'
-      summary: Detailed health check
-      tags:
-      - health
-  /health/python:
-    get:
-      consumes:
-      - application/json
-      description: Checks if the Python FastAPI service is reachable and healthy
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.PythonHealthResponse'
-      summary: Check Python service health
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Comprehensive system health check
       tags:
       - health
 schemes:
