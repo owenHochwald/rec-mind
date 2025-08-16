@@ -15,10 +15,10 @@ import (
 )
 
 type JobConsumer struct {
-	ragWorker *RAGWorker
-	channel   *amqp.Channel
-	isRunning bool
-	wg        sync.WaitGroup
+	queryWorker *QueryRAGWorker
+	channel     *amqp.Channel
+	isRunning   bool
+	wg          sync.WaitGroup
 }
 
 func NewJobConsumer(chunkRepo repository.ArticleChunkRepository, articleRepo repository.ArticleRepository) (*JobConsumer, error) {
@@ -30,15 +30,15 @@ func NewJobConsumer(chunkRepo repository.ArticleChunkRepository, articleRepo rep
 		return nil, fmt.Errorf("Redis client not initialized")
 	}
 
-	ragWorker, err := NewRAGWorker(chunkRepo, articleRepo, redis.RedisClient)
+	queryWorker, err := NewQueryRAGWorker(articleRepo, redis.RedisClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create RAG worker: %w", err)
+		return nil, fmt.Errorf("failed to create query RAG worker: %w", err)
 	}
 
 	return &JobConsumer{
-		ragWorker: ragWorker,
-		channel:   mq.MQChannel,
-		isRunning: false,
+		queryWorker: queryWorker,
+		channel:     mq.MQChannel,
+		isRunning:   false,
 	}, nil
 }
 
@@ -47,17 +47,17 @@ func (jc *JobConsumer) Start() error {
 		return fmt.Errorf("job consumer is already running")
 	}
 
-	// Declare the recommendation_jobs queue
+	// Declare the query_search_jobs queue
 	queue, err := jc.channel.QueueDeclare(
-		"recommendation_jobs", // name
-		true,                  // durable
-		false,                 // delete when unused
-		false,                 // exclusive
-		false,                 // no-wait
-		nil,                   // arguments
+		"query_search_jobs", // name
+		true,                // durable
+		false,               // delete when unused
+		false,               // exclusive
+		false,               // no-wait
+		nil,                 // arguments
 	)
 	if err != nil {
-		return fmt.Errorf("failed to declare recommendation_jobs queue: %w", err)
+		return fmt.Errorf("failed to declare query_search_jobs queue: %w", err)
 	}
 
 	// Set QoS to process one job at a time per worker
@@ -72,7 +72,7 @@ func (jc *JobConsumer) Start() error {
 
 	msgs, err := jc.channel.Consume(
 		queue.Name,            // queue
-		"rag-worker",          // consumer
+		"query-rag-worker",    // consumer
 		false,                 // auto-ack
 		false,                 // exclusive
 		false,                 // no-local
@@ -80,7 +80,7 @@ func (jc *JobConsumer) Start() error {
 		nil,                   // args
 	)
 	if err != nil {
-		return fmt.Errorf("failed to register recommendation jobs consumer: %w", err)
+		return fmt.Errorf("failed to register query search jobs consumer: %w", err)
 	}
 
 	jc.isRunning = true
@@ -88,35 +88,35 @@ func (jc *JobConsumer) Start() error {
 
 	go func() {
 		defer jc.wg.Done()
-		log.Println("🚀 Started recommendation jobs consumer")
+		log.Println("🚀 Started query search jobs consumer")
 
 		for d := range msgs {
 			if !jc.isRunning {
 				break
 			}
 
-			var job database.RecommendationJob
+			var job database.QuerySearchJob
 			if err := json.Unmarshal(d.Body, &job); err != nil {
-				log.Printf("❌ Failed to unmarshal recommendation job: %v", err)
+				log.Printf("❌ Failed to unmarshal query search job: %v", err)
 				d.Nack(false, false)
 				continue
 			}
 
-			log.Printf("📋 Processing recommendation job %s for article %s", job.JobID, job.ArticleID)
+			log.Printf("📋 Processing query search job %s for query: %s", job.JobID, job.Query)
 
-			// Process the job using RAG worker
-			if err := jc.ragWorker.ProcessRecommendationJob(job); err != nil {
-				log.Printf("❌ Failed to process recommendation job %s: %v", job.JobID, err)
+			// Process the job using query RAG worker
+			if err := jc.queryWorker.ProcessQuerySearchJob(job); err != nil {
+				log.Printf("❌ Failed to process query search job %s: %v", job.JobID, err)
 				d.Nack(false, true) // Requeue for retry
 				continue
 			}
 
 			// Acknowledge successful processing
 			d.Ack(false)
-			log.Printf("✅ Successfully processed recommendation job %s", job.JobID)
+			log.Printf("✅ Successfully processed query search job %s", job.JobID)
 		}
 
-		log.Println("🛑 Recommendation jobs consumer stopped")
+		log.Println("🛑 Query search jobs consumer stopped")
 	}()
 
 	return nil
@@ -127,10 +127,10 @@ func (jc *JobConsumer) Stop() {
 		return
 	}
 
-	log.Println("🛑 Stopping recommendation jobs consumer...")
+	log.Println("🛑 Stopping query search jobs consumer...")
 	jc.isRunning = false
 	jc.wg.Wait()
-	log.Println("✅ Recommendation jobs consumer stopped")
+	log.Println("✅ Query search jobs consumer stopped")
 }
 
 func (jc *JobConsumer) IsRunning() bool {
