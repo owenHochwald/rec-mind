@@ -13,7 +13,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 
-	"rec-mind/internal/database"
+	"rec-mind/models"
 	"rec-mind/internal/repository"
 	"rec-mind/mq"
 )
@@ -28,8 +28,8 @@ type QueryRAGWorker struct {
 }
 
 type QuerySearchResultMessage struct {
-	Response *database.QuerySearchResponse
-	Error    *database.QuerySearchError
+	Response *models.QuerySearchResponse
+	Error    *models.QuerySearchError
 }
 
 type QuerySearchTimeout struct {
@@ -57,7 +57,7 @@ func NewQueryRAGWorker(articleRepo repository.ArticleRepository, redisClient *re
 	return worker, nil
 }
 
-func (w *QueryRAGWorker) ProcessQuerySearchJob(job database.QuerySearchJob) error {
+func (w *QueryRAGWorker) ProcessQuerySearchJob(job models.QuerySearchJob) error {
 	startTime := time.Now()
 	ctx := context.Background()
 
@@ -65,7 +65,7 @@ func (w *QueryRAGWorker) ProcessQuerySearchJob(job database.QuerySearchJob) erro
 
 	// Create single query search message (no chunking needed)
 	searchID := uuid.New().String()
-	searchMsg := database.QuerySearchMessage{
+	searchMsg := models.QuerySearchMessage{
 		SearchID:       searchID,
 		JobID:          job.JobID,
 		Query:          job.Query,
@@ -94,7 +94,7 @@ func (w *QueryRAGWorker) ProcessQuerySearchJob(job database.QuerySearchJob) erro
 	log.Printf("📥 Received query search result for job %s", job.JobID)
 
 	// Process and enrich results
-	var recommendations []database.ArticleRecommendation
+	var recommendations []models.ArticleRecommendation
 	if result.Response != nil && len(result.Response.Results) > 0 {
 		recommendations = w.processQueryResults(result.Response.Results)
 
@@ -109,7 +109,7 @@ func (w *QueryRAGWorker) ProcessQuerySearchJob(job database.QuerySearchJob) erro
 
 	// Store final results
 	processingTime := time.Since(startTime)
-	queryResult := database.QueryRecommendationResult{
+	queryResult := models.QueryRecommendationResult{
 		JobID:           job.JobID,
 		Query:           job.Query,
 		Recommendations: recommendations,
@@ -171,23 +171,23 @@ func (w *QueryRAGWorker) collectQuerySearchResult(searchID string, timeout time.
 	}
 }
 
-func (w *QueryRAGWorker) processQueryResults(results []database.QuerySearchResult) []database.ArticleRecommendation {
+func (w *QueryRAGWorker) processQueryResults(results []models.QuerySearchResult) []models.ArticleRecommendation {
 	// Group results by article ID
-	articleGroups := make(map[uuid.UUID][]database.QuerySearchResult)
+	articleGroups := make(map[uuid.UUID][]models.QuerySearchResult)
 	for _, result := range results {
 		articleGroups[result.ArticleID] = append(articleGroups[result.ArticleID], result)
 	}
 
 	// Convert to recommendations
-	var recommendations []database.ArticleRecommendation
+	var recommendations []models.ArticleRecommendation
 	for articleID, articleResults := range articleGroups {
 		// Calculate scores for this article
 		scores := make([]float64, len(articleResults))
-		chunkMatches := make([]database.ChunkMatch, len(articleResults))
+		chunkMatches := make([]models.ChunkMatch, len(articleResults))
 
 		for i, result := range articleResults {
 			scores[i] = result.SimilarityScore
-			chunkMatches[i] = database.ChunkMatch{
+			chunkMatches[i] = models.ChunkMatch{
 				ChunkID:        uuid.MustParse(result.ChunkID),
 				Score:          result.SimilarityScore,
 				ChunkIndex:     result.ChunkIndex,
@@ -202,7 +202,7 @@ func (w *QueryRAGWorker) processQueryResults(results []database.QuerySearchResul
 		// For query-based search, use simple average of similarities as hybrid score
 		hybridScore := (maxSim*0.7 + avgSim*0.3)
 
-		recommendation := database.ArticleRecommendation{
+		recommendation := models.ArticleRecommendation{
 			ArticleID:     articleID,
 			HybridScore:   hybridScore,
 			MaxSimilarity: maxSim,
@@ -222,7 +222,7 @@ func (w *QueryRAGWorker) processQueryResults(results []database.QuerySearchResul
 	return recommendations
 }
 
-func (w *QueryRAGWorker) enrichWithArticleData(recommendations []database.ArticleRecommendation) ([]database.ArticleRecommendation, error) {
+func (w *QueryRAGWorker) enrichWithArticleData(recommendations []models.ArticleRecommendation) ([]models.ArticleRecommendation, error) {
 	for i := range recommendations {
 		article, err := w.articleRepo.GetByID(context.Background(), recommendations[i].ArticleID)
 		if err != nil {
@@ -238,7 +238,7 @@ func (w *QueryRAGWorker) enrichWithArticleData(recommendations []database.Articl
 	return recommendations, nil
 }
 
-func (w *QueryRAGWorker) storeQueryResult(ctx context.Context, result database.QueryRecommendationResult) error {
+func (w *QueryRAGWorker) storeQueryResult(ctx context.Context, result models.QueryRecommendationResult) error {
 	// Store in Redis with TTL
 	key := fmt.Sprintf("query_search_result:%s", result.JobID)
 	resultJSON, err := json.Marshal(result)
@@ -257,10 +257,10 @@ func (w *QueryRAGWorker) storeQueryResult(ctx context.Context, result database.Q
 
 func (w *QueryRAGWorker) storeQueryErrorResult(jobID string, query string, errorMsg string) error {
 	ctx := context.Background()
-	result := database.QueryRecommendationResult{
+	result := models.QueryRecommendationResult{
 		JobID:           jobID,
 		Query:           query,
-		Recommendations: []database.ArticleRecommendation{},
+		Recommendations: []models.ArticleRecommendation{},
 		TotalFound:      0,
 		ProcessingTime:  "0s",
 		Status:          "error",
@@ -303,12 +303,12 @@ func (w *QueryRAGWorker) startQuerySearchResultsConsumer() {
 		var resultMsg QuerySearchResultMessage
 
 		// Try to parse as response first
-		var response database.QuerySearchResponse
+		var response models.QuerySearchResponse
 		if err := json.Unmarshal(d.Body, &response); err == nil && response.SearchID != "" {
 			resultMsg.Response = &response
 		} else {
 			// Try to parse as error
-			var errorResp database.QuerySearchError
+			var errorResp models.QuerySearchError
 			if err := json.Unmarshal(d.Body, &errorResp); err == nil && errorResp.SearchID != "" {
 				resultMsg.Error = &errorResp
 			} else {

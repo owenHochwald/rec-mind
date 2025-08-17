@@ -8,7 +8,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"rec-mind/internal/database"
+	"rec-mind/models"
 	"rec-mind/internal/redis"
 	"rec-mind/internal/repository"
 	"rec-mind/mq"
@@ -95,7 +95,7 @@ func (jc *JobConsumer) Start() error {
 				break
 			}
 
-			var job database.QuerySearchJob
+			var job models.QuerySearchJob
 			if err := json.Unmarshal(d.Body, &job); err != nil {
 				log.Printf("❌ Failed to unmarshal query search job: %v", err)
 				d.Nack(false, false)

@@ -8,7 +8,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/joho/godotenv"
-	"rec-mind/internal/database"
+	"rec-mind/models"
 )
 
 var MQConn *amqp.Connection
@@ -147,7 +147,7 @@ func PublishEvent(body string) error {
 }
 
 // PublishQuerySearchJob publishes a query search job to the jobs queue
-func PublishQuerySearchJob(job database.QuerySearchJob) error {
+func PublishQuerySearchJob(job models.QuerySearchJob) error {
 	messageBytes, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal query search job: %w", err)
@@ -174,7 +174,7 @@ func PublishQuerySearchJob(job database.QuerySearchJob) error {
 }
 
 // PublishQuerySearch publishes a query search message to the search queue
-func PublishQuerySearch(message database.QuerySearchMessage) error {
+func PublishQuerySearch(message models.QuerySearchMessage) error {
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("failed to marshal query search message: %w", err)
@@ -236,7 +236,7 @@ func PublishArticleProcessing(articleID, title, content, category string, create
 }
 
 // PublishRecommendationJob publishes a recommendation job to the jobs queue
-func PublishRecommendationJob(job database.RecommendationJob) error {
+func PublishRecommendationJob(job models.RecommendationJob) error {
 	messageBytes, err := json.Marshal(job)
 	if err != nil {
 		return fmt.Errorf("failed to marshal recommendation job: %w", err)
@@ -263,7 +263,7 @@ func PublishRecommendationJob(job database.RecommendationJob) error {
 }
 
 // PublishChunkSearch publishes a chunk search message to the search queue
-func PublishChunkSearch(message database.ChunkSearchMessage) error {
+func PublishChunkSearch(message models.ChunkSearchMessage) error {
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("failed to marshal chunk search message: %w", err)
