@@ -108,6 +108,23 @@ func SystemHealth(db *database.DB, startTime time.Time) gin.HandlerFunc {
 			}
 		}
 
+		// Check Query RAG Worker (check if query_search_jobs queue exists and is accessible)
+		ragWorkerStart := time.Now()
+		ragWorkerHealthy := checkQueryRAGWorkerHealth()
+		if !ragWorkerHealthy.IsHealthy {
+			dependencies["query_rag_worker"] = DependencyStatus{
+				Status: "unhealthy",
+				Error:  stringPtr(ragWorkerHealthy.Error),
+			}
+			overallHealthy = false
+		} else {
+			ragWorkerTime := time.Since(ragWorkerStart)
+			dependencies["query_rag_worker"] = DependencyStatus{
+				Status:       "healthy",
+				ResponseTime: stringPtr(ragWorkerTime.String()),
+			}
+		}
+
 		// Determine overall status
 		status := "healthy"
 		statusCode := http.StatusOK
@@ -176,6 +193,35 @@ func checkPythonHealthInternal() PythonHealthResponse {
 		response.PythonResponse = fmt.Sprintf("HTTP %d", resp.StatusCode)
 	}
 
+	return response
+}
+
+// RAGWorkerHealthResponse represents the health status of the Query RAG Worker
+type RAGWorkerHealthResponse struct {
+	IsHealthy bool   `json:"is_healthy"`
+	Error     string `json:"error,omitempty"`
+}
+
+// checkQueryRAGWorkerHealth checks if the Query RAG Worker is healthy by verifying queue accessibility
+func checkQueryRAGWorkerHealth() RAGWorkerHealthResponse {
+	response := RAGWorkerHealthResponse{
+		IsHealthy: false,
+	}
+
+	// Check if RabbitMQ connection is available
+	if mq.MQChannel == nil || mq.MQChannel.IsClosed() {
+		response.Error = "RabbitMQ connection not available"
+		return response
+	}
+
+	// Try to inspect the query_search_jobs queue to see if it's accessible
+	_, err := mq.MQChannel.QueueInspect("query_search_jobs")
+	if err != nil {
+		response.Error = fmt.Sprintf("Cannot access query_search_jobs queue: %v", err)
+		return response
+	}
+
+	response.IsHealthy = true
 	return response
 }
 

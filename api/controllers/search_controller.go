@@ -185,35 +185,3 @@ func (sc *SearchController) SearchWithImmediateResponse(c *gin.Context) {
 	response.Accepted(c, data)
 }
 
-func (sc *SearchController) HealthCheck(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	health := gin.H{
-		"service": "search",
-		"status":  "healthy",
-		"timestamp": time.Now().Format(time.RFC3339),
-	}
-
-	if err := redis.HealthCheck(ctx); err != nil {
-		health["redis_status"] = "unhealthy"
-		health["redis_error"] = err.Error()
-		health["status"] = "degraded"
-	} else {
-		health["redis_status"] = "healthy"
-	}
-
-	if mq.MQChannel == nil || mq.MQChannel.IsClosed() {
-		health["rabbitmq_status"] = "unhealthy"
-		health["status"] = "degraded"
-	} else {
-		health["rabbitmq_status"] = "healthy"
-	}
-
-	statusCode := http.StatusOK
-	if health["status"] == "degraded" {
-		statusCode = http.StatusServiceUnavailable
-	}
-
-	c.JSON(statusCode, health)
-}

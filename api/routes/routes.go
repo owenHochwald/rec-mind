@@ -61,7 +61,6 @@ func SetupRoutes(r *gin.Engine, db *database.DB, articleService *services.Articl
 				search.POST("/recommendations", searchController.SearchByQuery)
 				search.POST("/immediate", searchController.SearchWithImmediateResponse)
 				search.GET("/jobs/:job_id", searchController.GetQuerySearchJobStatus)
-				search.GET("/health", searchController.HealthCheck)
 			}
 		}
 	}
