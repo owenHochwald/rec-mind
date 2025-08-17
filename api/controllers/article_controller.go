@@ -1,200 +1,124 @@
 package controllers
 
 import (
-	"context"
-	"log"
-	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"rec-mind/internal/database"
+
 	"rec-mind/internal/repository"
 	"rec-mind/internal/services"
+	"rec-mind/models"
+	"rec-mind/pkg/response"
 )
 
-
-// UploadArticle creates a new article with ML embedding generation
 func UploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req database.CreateArticleRequest
-
+		var req models.CreateArticleRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			response.BadRequest(c, "Invalid request format")
 			return
 		}
 
-		// Check processing mode from query parameter
 		processingMode := c.DefaultQuery("processing", "async")
+		ctx := c.Request.Context()
 
 		switch processingMode {
 		case "sync":
-			// Synchronous processing - wait for embedding generation
-			result, err := articleService.CreateArticleWithEmbedding(c.Request.Context(), &req)
+			result, err := articleService.CreateArticleWithEmbedding(ctx, &req)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
+				response.InternalServerError(c, "Failed to create article")
 				return
 			}
 
-			// Return comprehensive result
-			response := gin.H{
-				"article": result.Article.ToResponse(),
+			data := gin.H{
+				"article":         result.Article.ToResponse(),
 				"processing_time": result.ProcessingTime.String(),
-				"embedding_generated": result.EmbeddingResult != nil,
+				"processing_mode": "sync_embedding",
 			}
 
 			if result.EmbeddingResult != nil {
-				response["embedding_summary"] = gin.H{
-					"tokens_used": result.EmbeddingResult.Summary.TotalTokens,
-					"processing_time": result.EmbeddingResult.Summary.ProcessingTime,
+				data["embedding_summary"] = gin.H{
+					"tokens_used":     result.EmbeddingResult.Summary.TotalTokens,
 					"vectors_uploaded": len(result.EmbeddingResult.Uploads),
 				}
 			}
 
-			if result.Error != "" {
-				response["warning"] = result.Error
-			}
+			response.CreatedWithMessage(c, data, "Article created with embeddings")
 
-			c.JSON(http.StatusCreated, response)
-
-		case "async":
-			// Asynchronous processing with chunking - return immediately, process in background
-			article, err := articleService.CreateArticleWithChunking(c.Request.Context(), &req)
+		default:
+			article, err := articleService.CreateArticleWithAsyncEmbedding(ctx, &req)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create article"})
+				response.InternalServerError(c, "Failed to create article")
 				return
 			}
 
-			c.JSON(http.StatusCreated, gin.H{
-				"article": article.ToResponse(),
-				"message": "Article created successfully. Chunking and embedding generation are processing in the background.",
+			data := gin.H{
+				"article":         article.ToResponse(),
 				"processing_mode": "async_chunking",
-			})
+			}
 
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid processing mode. Use 'sync' or 'async'"})
+			response.CreatedWithMessage(c, data, "Article created successfully. Chunking and embedding generation are processing in the background.")
 		}
 	}
 }
 
-// ListArticles retrieves articles with filtering and pagination
 func ListArticles(repo repository.ArticleRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var filter database.ArticleFilter
-
+		var filter models.ArticleFilter
 		if err := c.ShouldBindQuery(&filter); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			response.BadRequest(c, "Invalid query parameters")
 			return
 		}
 
 		filter.SetDefaults()
 		articles, err := repo.List(c.Request.Context(), &filter)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve articles"})
+			response.InternalServerError(c, "Failed to fetch articles")
 			return
 		}
 
-		count, err := repo.Count(c.Request.Context(), &filter)
-		if err != nil {
-			log.Printf("Failed to get article count: %v", err)
-			count = 0
+		var articleResponses []map[string]interface{}
+		for _, article := range articles {
+			articleResponses = append(articleResponses, article.ToResponse())
 		}
 
-		response := gin.H{
-			"articles": articles,
-			"total":    count,
-			"limit":    filter.Limit,
-			"offset":   filter.Offset,
-		}
-
-		c.JSON(http.StatusOK, response)
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		response.Paginated(c, articleResponses, len(articleResponses), page, filter.Limit)
 	}
 }
 
-// GetArticle retrieves a single article by ID
 func GetArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := uuid.Parse(idStr)
+		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid article ID"})
+			response.BadRequest(c, "Invalid article ID")
 			return
 		}
 
 		article, err := repo.GetByID(c.Request.Context(), id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Article not found"})
+			response.NotFound(c, "Article not found")
 			return
 		}
 
-		c.JSON(http.StatusOK, article.ToResponse())
+		response.Success(c, article.ToResponse())
 	}
 }
 
-// UpdateArticle updates an existing article
-func UpdateArticle(repo repository.ArticleRepository) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := uuid.Parse(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid article ID"})
-			return
-		}
-
-		var req database.UpdateArticleRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		article, err := repo.Update(c.Request.Context(), id, &req)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Article not found"})
-			return
-		}
-
-		c.JSON(http.StatusOK, article.ToResponse())
-	}
-}
-
-// DeleteArticle removes an article
 func DeleteArticle(repo repository.ArticleRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := uuid.Parse(idStr)
+		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid article ID"})
+			response.BadRequest(c, "Invalid article ID")
 			return
 		}
 
 		if err := repo.Delete(c.Request.Context(), id); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Article not found"})
+			response.InternalServerError(c, "Failed to delete article")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Article deleted successfully"})
+		response.SuccessWithMessage(c, nil, "Article deleted successfully")
 	}
 }
-
-// CheckMLHealth checks the health of the ML service
-func CheckMLHealth(articleService *services.ArticleService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-		defer cancel()
-
-		err := articleService.CheckMLServiceHealth(ctx)
-		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"ml_service_healthy": false,
-				"error": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"ml_service_healthy": true,
-			"message": "ML service is healthy and ready for embedding generation",
-		})
-	}
-}
-
