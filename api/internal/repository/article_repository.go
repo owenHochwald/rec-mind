@@ -9,20 +9,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"rec-mind/internal/database"
+
+	"rec-mind/models"
 )
 
 type ArticleRepository interface {
-	Create(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*database.Article, error)
-	GetByURL(ctx context.Context, url string) (*database.Article, error)
+	Create(ctx context.Context, req *models.CreateArticleRequest) (*models.Article, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*models.Article, error)
+	GetByURL(ctx context.Context, url string) (*models.Article, error)
 	ExistsByURL(ctx context.Context, url string) (bool, error)
-	List(ctx context.Context, filter *database.ArticleFilter) ([]*database.Article, error)
-	Update(ctx context.Context, id uuid.UUID, req *database.UpdateArticleRequest) (*database.Article, error)
+	List(ctx context.Context, filter *models.ArticleFilter) ([]*models.Article, error)
+	Update(ctx context.Context, id uuid.UUID, req *models.UpdateArticleRequest) (*models.Article, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	Count(ctx context.Context, filter *database.ArticleFilter) (int64, error)
-	GetByCategory(ctx context.Context, category string, limit int) ([]*database.Article, error)
-	GetRecent(ctx context.Context, limit int) ([]*database.Article, error)
+	Count(ctx context.Context, filter *models.ArticleFilter) (int64, error)
+	GetByCategory(ctx context.Context, category string, limit int) ([]*models.Article, error)
+	GetRecent(ctx context.Context, limit int) ([]*models.Article, error)
 }
 
 type articleRepository struct {
@@ -33,13 +34,13 @@ func NewArticleRepository(db *pgxpool.Pool) ArticleRepository {
 	return &articleRepository{db: db}
 }
 
-func (r *articleRepository) Create(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error) {
+func (r *articleRepository) Create(ctx context.Context, req *models.CreateArticleRequest) (*models.Article, error) {
 	query := `
 		INSERT INTO articles (title, content, url, category)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, title, content, url, category, created_at, updated_at`
 
-	var article database.Article
+	var article models.Article
 	err := r.db.QueryRow(ctx, query, req.Title, req.Content, req.URL, req.Category).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
 			&article.CreatedAt, &article.UpdatedAt)
@@ -51,13 +52,13 @@ func (r *articleRepository) Create(ctx context.Context, req *database.CreateArti
 	return &article, nil
 }
 
-func (r *articleRepository) GetByID(ctx context.Context, id uuid.UUID) (*database.Article, error) {
+func (r *articleRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Article, error) {
 	query := `
 		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
 		WHERE id = $1`
 
-	var article database.Article
+	var article models.Article
 	err := r.db.QueryRow(ctx, query, id).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
 			&article.CreatedAt, &article.UpdatedAt)
@@ -72,13 +73,13 @@ func (r *articleRepository) GetByID(ctx context.Context, id uuid.UUID) (*databas
 	return &article, nil
 }
 
-func (r *articleRepository) GetByURL(ctx context.Context, url string) (*database.Article, error) {
+func (r *articleRepository) GetByURL(ctx context.Context, url string) (*models.Article, error) {
 	query := `
 		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
 		WHERE url = $1`
 
-	var article database.Article
+	var article models.Article
 	err := r.db.QueryRow(ctx, query, url).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
 			&article.CreatedAt, &article.UpdatedAt)
@@ -105,7 +106,7 @@ func (r *articleRepository) ExistsByURL(ctx context.Context, url string) (bool, 
 	return exists, nil
 }
 
-func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFilter) ([]*database.Article, error) {
+func (r *articleRepository) List(ctx context.Context, filter *models.ArticleFilter) ([]*models.Article, error) {
 	filter.SetDefaults()
 
 	query := `
@@ -143,9 +144,9 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 	}
 	defer rows.Close()
 
-	var articles []*database.Article
+	var articles []*models.Article
 	for rows.Next() {
-		var article database.Article
+		var article models.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
 			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {
@@ -157,7 +158,7 @@ func (r *articleRepository) List(ctx context.Context, filter *database.ArticleFi
 	return articles, nil
 }
 
-func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *database.UpdateArticleRequest) (*database.Article, error) {
+func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *models.UpdateArticleRequest) (*models.Article, error) {
 	var setParts []string
 	var args []interface{}
 	argIndex := 1
@@ -204,7 +205,7 @@ func (r *articleRepository) Update(ctx context.Context, id uuid.UUID, req *datab
 
 	args = append(args, id)
 
-	var article database.Article
+	var article models.Article
 	err := r.db.QueryRow(ctx, query, args...).
 		Scan(&article.ID, &article.Title, &article.Content, &article.URL, &article.Category,
 			&article.CreatedAt, &article.UpdatedAt)
@@ -234,7 +235,7 @@ func (r *articleRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *articleRepository) Count(ctx context.Context, filter *database.ArticleFilter) (int64, error) {
+func (r *articleRepository) Count(ctx context.Context, filter *models.ArticleFilter) (int64, error) {
 	query := "SELECT COUNT(*) FROM articles"
 
 	var conditions []string
@@ -267,7 +268,7 @@ func (r *articleRepository) Count(ctx context.Context, filter *database.ArticleF
 	return count, nil
 }
 
-func (r *articleRepository) GetByCategory(ctx context.Context, category string, limit int) ([]*database.Article, error) {
+func (r *articleRepository) GetByCategory(ctx context.Context, category string, limit int) ([]*models.Article, error) {
 	query := `
 		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
@@ -281,9 +282,9 @@ func (r *articleRepository) GetByCategory(ctx context.Context, category string, 
 	}
 	defer rows.Close()
 
-	var articles []*database.Article
+	var articles []*models.Article
 	for rows.Next() {
-		var article database.Article
+		var article models.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
 			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {
@@ -295,7 +296,7 @@ func (r *articleRepository) GetByCategory(ctx context.Context, category string, 
 	return articles, nil
 }
 
-func (r *articleRepository) GetRecent(ctx context.Context, limit int) ([]*database.Article, error) {
+func (r *articleRepository) GetRecent(ctx context.Context, limit int) ([]*models.Article, error) {
 	query := `
 		SELECT id, title, content, url, category, created_at, updated_at
 		FROM articles
@@ -308,9 +309,9 @@ func (r *articleRepository) GetRecent(ctx context.Context, limit int) ([]*databa
 	}
 	defer rows.Close()
 
-	var articles []*database.Article
+	var articles []*models.Article
 	for rows.Next() {
-		var article database.Article
+		var article models.Article
 		err := rows.Scan(&article.ID, &article.Title, &article.Content, &article.URL,
 			&article.Category, &article.CreatedAt, &article.UpdatedAt)
 		if err != nil {

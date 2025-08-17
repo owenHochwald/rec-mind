@@ -8,20 +8,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"rec-mind/internal/database"
+	"rec-mind/models"
 )
 
 type ArticleChunkRepository interface {
-	Create(ctx context.Context, req *database.CreateArticleChunkRequest) (*database.ArticleChunk, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*database.ArticleChunk, error)
-	GetByArticleID(ctx context.Context, articleID uuid.UUID) ([]*database.ArticleChunk, error)
-	GetByArticleIDAndIndex(ctx context.Context, articleID uuid.UUID, chunkIndex int) (*database.ArticleChunk, error)
-	List(ctx context.Context, filter *database.ArticleChunkFilter) ([]*database.ArticleChunk, error)
-	Update(ctx context.Context, id uuid.UUID, req *database.UpdateArticleChunkRequest) (*database.ArticleChunk, error)
+	Create(ctx context.Context, req *models.CreateArticleChunkRequest) (*models.ArticleChunk, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*models.ArticleChunk, error)
+	GetByArticleID(ctx context.Context, articleID uuid.UUID) ([]*models.ArticleChunk, error)
+	GetByArticleIDAndIndex(ctx context.Context, articleID uuid.UUID, chunkIndex int) (*models.ArticleChunk, error)
+	List(ctx context.Context, filter *models.ArticleChunkFilter) ([]*models.ArticleChunk, error)
+	Update(ctx context.Context, id uuid.UUID, req *models.UpdateArticleChunkRequest) (*models.ArticleChunk, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByArticleID(ctx context.Context, articleID uuid.UUID) error
-	Count(ctx context.Context, filter *database.ArticleChunkFilter) (int64, error)
-	CreateBatch(ctx context.Context, chunks []*database.CreateArticleChunkRequest) ([]*database.ArticleChunk, error)
+	Count(ctx context.Context, filter *models.ArticleChunkFilter) (int64, error)
+	CreateBatch(ctx context.Context, chunks []*models.CreateArticleChunkRequest) ([]*models.ArticleChunk, error)
 }
 
 type articleChunkRepository struct {
@@ -32,13 +32,13 @@ func NewArticleChunkRepository(db *pgxpool.Pool) ArticleChunkRepository {
 	return &articleChunkRepository{db: db}
 }
 
-func (r *articleChunkRepository) Create(ctx context.Context, req *database.CreateArticleChunkRequest) (*database.ArticleChunk, error) {
+func (r *articleChunkRepository) Create(ctx context.Context, req *models.CreateArticleChunkRequest) (*models.ArticleChunk, error) {
 	query := `
 		INSERT INTO article_chunks (article_id, chunk_index, content, token_count, character_count)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, article_id, chunk_index, content, token_count, character_count, created_at`
 
-	var chunk database.ArticleChunk
+	var chunk models.ArticleChunk
 	err := r.db.QueryRow(ctx, query, req.ArticleID, req.ChunkIndex, req.Content, req.TokenCount, req.CharacterCount).
 		Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 
@@ -49,13 +49,13 @@ func (r *articleChunkRepository) Create(ctx context.Context, req *database.Creat
 	return &chunk, nil
 }
 
-func (r *articleChunkRepository) GetByID(ctx context.Context, id uuid.UUID) (*database.ArticleChunk, error) {
+func (r *articleChunkRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.ArticleChunk, error) {
 	query := `
 		SELECT id, article_id, chunk_index, content, token_count, character_count, created_at
 		FROM article_chunks
 		WHERE id = $1`
 
-	var chunk database.ArticleChunk
+	var chunk models.ArticleChunk
 	err := r.db.QueryRow(ctx, query, id).
 		Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 
@@ -69,7 +69,7 @@ func (r *articleChunkRepository) GetByID(ctx context.Context, id uuid.UUID) (*da
 	return &chunk, nil
 }
 
-func (r *articleChunkRepository) GetByArticleID(ctx context.Context, articleID uuid.UUID) ([]*database.ArticleChunk, error) {
+func (r *articleChunkRepository) GetByArticleID(ctx context.Context, articleID uuid.UUID) ([]*models.ArticleChunk, error) {
 	query := `
 		SELECT id, article_id, chunk_index, content, token_count, character_count, created_at
 		FROM article_chunks
@@ -82,9 +82,9 @@ func (r *articleChunkRepository) GetByArticleID(ctx context.Context, articleID u
 	}
 	defer rows.Close()
 
-	var chunks []*database.ArticleChunk
+	var chunks []*models.ArticleChunk
 	for rows.Next() {
-		var chunk database.ArticleChunk
+		var chunk models.ArticleChunk
 		err := rows.Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article chunk: %w", err)
@@ -95,13 +95,13 @@ func (r *articleChunkRepository) GetByArticleID(ctx context.Context, articleID u
 	return chunks, nil
 }
 
-func (r *articleChunkRepository) GetByArticleIDAndIndex(ctx context.Context, articleID uuid.UUID, chunkIndex int) (*database.ArticleChunk, error) {
+func (r *articleChunkRepository) GetByArticleIDAndIndex(ctx context.Context, articleID uuid.UUID, chunkIndex int) (*models.ArticleChunk, error) {
 	query := `
 		SELECT id, article_id, chunk_index, content, token_count, character_count, created_at
 		FROM article_chunks
 		WHERE article_id = $1 AND chunk_index = $2`
 
-	var chunk database.ArticleChunk
+	var chunk models.ArticleChunk
 	err := r.db.QueryRow(ctx, query, articleID, chunkIndex).
 		Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 
@@ -115,7 +115,7 @@ func (r *articleChunkRepository) GetByArticleIDAndIndex(ctx context.Context, art
 	return &chunk, nil
 }
 
-func (r *articleChunkRepository) List(ctx context.Context, filter *database.ArticleChunkFilter) ([]*database.ArticleChunk, error) {
+func (r *articleChunkRepository) List(ctx context.Context, filter *models.ArticleChunkFilter) ([]*models.ArticleChunk, error) {
 	filter.SetDefaults()
 
 	query := `
@@ -146,9 +146,9 @@ func (r *articleChunkRepository) List(ctx context.Context, filter *database.Arti
 	}
 	defer rows.Close()
 
-	var chunks []*database.ArticleChunk
+	var chunks []*models.ArticleChunk
 	for rows.Next() {
-		var chunk database.ArticleChunk
+		var chunk models.ArticleChunk
 		err := rows.Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan article chunk: %w", err)
@@ -159,7 +159,7 @@ func (r *articleChunkRepository) List(ctx context.Context, filter *database.Arti
 	return chunks, nil
 }
 
-func (r *articleChunkRepository) Update(ctx context.Context, id uuid.UUID, req *database.UpdateArticleChunkRequest) (*database.ArticleChunk, error) {
+func (r *articleChunkRepository) Update(ctx context.Context, id uuid.UUID, req *models.UpdateArticleChunkRequest) (*models.ArticleChunk, error) {
 	var setParts []string
 	var args []interface{}
 	argIndex := 1
@@ -195,7 +195,7 @@ func (r *articleChunkRepository) Update(ctx context.Context, id uuid.UUID, req *
 
 	args = append(args, id)
 
-	var chunk database.ArticleChunk
+	var chunk models.ArticleChunk
 	err := r.db.QueryRow(ctx, query, args...).
 		Scan(&chunk.ID, &chunk.ArticleID, &chunk.ChunkIndex, &chunk.Content, &chunk.TokenCount, &chunk.CharacterCount, &chunk.CreatedAt)
 
@@ -235,7 +235,7 @@ func (r *articleChunkRepository) DeleteByArticleID(ctx context.Context, articleI
 	return nil
 }
 
-func (r *articleChunkRepository) Count(ctx context.Context, filter *database.ArticleChunkFilter) (int64, error) {
+func (r *articleChunkRepository) Count(ctx context.Context, filter *models.ArticleChunkFilter) (int64, error) {
 	query := "SELECT COUNT(*) FROM article_chunks"
 
 	var conditions []string
@@ -261,9 +261,9 @@ func (r *articleChunkRepository) Count(ctx context.Context, filter *database.Art
 	return count, nil
 }
 
-func (r *articleChunkRepository) CreateBatch(ctx context.Context, chunks []*database.CreateArticleChunkRequest) ([]*database.ArticleChunk, error) {
+func (r *articleChunkRepository) CreateBatch(ctx context.Context, chunks []*models.CreateArticleChunkRequest) ([]*models.ArticleChunk, error) {
 	if len(chunks) == 0 {
-		return []*database.ArticleChunk{}, nil
+		return []*models.ArticleChunk{}, nil
 	}
 
 	tx, err := r.db.Begin(ctx)
@@ -277,9 +277,9 @@ func (r *articleChunkRepository) CreateBatch(ctx context.Context, chunks []*data
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, article_id, chunk_index, content, token_count, character_count, created_at`
 
-	var results []*database.ArticleChunk
+	var results []*models.ArticleChunk
 	for _, chunk := range chunks {
-		var result database.ArticleChunk
+		var result models.ArticleChunk
 		err := tx.QueryRow(ctx, query, chunk.ArticleID, chunk.ChunkIndex, chunk.Content, chunk.TokenCount, chunk.CharacterCount).
 			Scan(&result.ID, &result.ArticleID, &result.ChunkIndex, &result.Content, &result.TokenCount, &result.CharacterCount, &result.CreatedAt)
 
