@@ -574,41 +574,6 @@ paths:
       summary: Create multiple article chunks
       tags:
       - chunks
-  /api/v1/search/health:
-    get:
-      description: Check the health of search service dependencies
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              rabbitmq_status:
-                type: string
-              redis_status:
-                type: string
-              service:
-                type: string
-              status:
-                type: string
-            type: object
-        "503":
-          description: Service Unavailable
-          schema:
-            properties:
-              rabbitmq_status:
-                type: string
-              redis_status:
-                type: string
-              service:
-                type: string
-              status:
-                type: string
-            type: object
-      summary: Search service health
-      tags:
-      - search
   /api/v1/search/immediate:
     post:
       consumes:

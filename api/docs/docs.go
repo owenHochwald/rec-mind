@@ -735,60 +735,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/search/health": {
-            "get": {
-                "description": "Check the health of search service dependencies",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "search"
-                ],
-                "summary": "Search service health",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "rabbitmq_status": {
-                                    "type": "string"
-                                },
-                                "redis_status": {
-                                    "type": "string"
-                                },
-                                "service": {
-                                    "type": "string"
-                                },
-                                "status": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "rabbitmq_status": {
-                                    "type": "string"
-                                },
-                                "redis_status": {
-                                    "type": "string"
-                                },
-                                "service": {
-                                    "type": "string"
-                                },
-                                "status": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/search/immediate": {
             "post": {
                 "description": "Search for articles matching a text query, with optional polling for faster response",
