@@ -1,4 +1,6 @@
+# =========================
 # Binaries for programs and plugins
+# =========================
 *.exe
 *.exe~
 *.dll
@@ -8,46 +10,75 @@
 # Test binary, built with `go test -c`
 *.test
 
-__pycache__/
-# *.py[cod]
-
 # Output of the go coverage tool
 *.out
 
 # Go workspace file
 go.work
-.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*venv
+*.venv
+# *.py[cod]  # optional
+
+# =========================
 # Environment variables
+# =========================
+.env
 .env.local
 .env.production
+.env.development.local
+.env.test.local
 settings.local.json
+api/.env.example
+# llm/.env.example
+.env.example
 
-# IDE files
+# =========================
+# IDE / editor files
+# =========================
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# =========================
 # OS files
+# =========================
 .DS_Store
 Thumbs.db
 
+# =========================
 # Build output
+# =========================
 main
 dist/
 build/
 
+# =========================
 # Logs
+# =========================
 *.log
-.env
-*venv
-*.venv
-api/test_endpoints.sh
-api/.env.example
-# llm/.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# =========================
+# Node (frontend only)
+# =========================
+frontend/node_modules/
+frontend/.pnp/
+frontend/.pnp.js
+frontend/coverage/
+frontend/build/
+
+# =========================
+# Claude-specific (optional)
+# =========================
 .claude/
 .claude/*
 .claude/settings.local.json
-CLAUDE.md
 CLAUDE.md
