@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"rec-mind/internal/database"
 	"rec-mind/internal/mlclient"
 	"rec-mind/internal/repository"
+	"rec-mind/models"
 	"rec-mind/mq"
 )
 
@@ -20,7 +20,7 @@ type ArticleService struct {
 
 // ArticleProcessingResult represents the result of processing an article
 type ArticleProcessingResult struct {
-	Article         *database.Article                   `json:"article"`
+	Article         *models.Article                   `json:"article"`
 	EmbeddingResult *mlclient.BatchAndUploadResponse    `json:"embedding_result,omitempty"`
 	Error           string                              `json:"error,omitempty"`
 	ProcessingTime  time.Duration                       `json:"processing_time"`
@@ -35,7 +35,7 @@ func NewArticleService(repo repository.ArticleRepository, mlClient *mlclient.MLC
 }
 
 // CreateArticleWithEmbedding creates an article and generates its embedding
-func (s *ArticleService) CreateArticleWithEmbedding(ctx context.Context, req *database.CreateArticleRequest) (*ArticleProcessingResult, error) {
+func (s *ArticleService) CreateArticleWithEmbedding(ctx context.Context, req *models.CreateArticleRequest) (*ArticleProcessingResult, error) {
 	startTime := time.Now()
 	
 	result := &ArticleProcessingResult{
@@ -76,7 +76,7 @@ func (s *ArticleService) CreateArticleWithEmbedding(ctx context.Context, req *da
 }
 
 // CreateArticleWithAsyncEmbedding creates an article and schedules embedding generation asynchronously
-func (s *ArticleService) CreateArticleWithAsyncEmbedding(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error) {
+func (s *ArticleService) CreateArticleWithAsyncEmbedding(ctx context.Context, req *models.CreateArticleRequest) (*models.Article, error) {
 	// Step 1: Create article in database
 	article, err := s.repo.Create(ctx, req)
 	if err != nil {
@@ -104,7 +104,7 @@ func (s *ArticleService) CreateArticleWithAsyncEmbedding(ctx context.Context, re
 }
 
 // CreateArticleWithChunking creates an article and schedules chunking + embedding processing
-func (s *ArticleService) CreateArticleWithChunking(ctx context.Context, req *database.CreateArticleRequest) (*database.Article, error) {
+func (s *ArticleService) CreateArticleWithChunking(ctx context.Context, req *models.CreateArticleRequest) (*models.Article, error) {
 	// Step 1: Create article in database
 	article, err := s.repo.Create(ctx, req)
 	if err != nil {
@@ -130,7 +130,7 @@ func (s *ArticleService) CreateArticleWithChunking(ctx context.Context, req *dat
 }
 
 // ProcessBatchArticles processes multiple articles for embedding generation
-func (s *ArticleService) ProcessBatchArticles(ctx context.Context, articles []*database.Article) (*mlclient.BatchAndUploadResponse, error) {
+func (s *ArticleService) ProcessBatchArticles(ctx context.Context, articles []*models.Article) (*mlclient.BatchAndUploadResponse, error) {
 	if len(articles) == 0 {
 		return nil, fmt.Errorf("no articles provided for batch processing")
 	}
