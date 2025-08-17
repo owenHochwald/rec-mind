@@ -8,14 +8,15 @@
 # Test binary, built with `go test -c`
 *.test
 
-*__pycache__
+__pycache__/
+# *.py[cod]
 
 # Output of the go coverage tool
 *.out
 
 # Go workspace file
 go.work
-
+.env.example
 # Environment variables
 .env.local
 .env.production
@@ -43,7 +44,7 @@ build/
 *.venv
 api/test_endpoints.sh
 api/.env.example
-llm/.env.example
+# llm/.env.example
 
 .claude/
 .claude/*
