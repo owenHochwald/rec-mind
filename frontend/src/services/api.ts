@@ -12,6 +12,20 @@ export interface Article {
   updated_at: string;
 }
 
+export interface UploadArticleRequest {
+  title: string;
+  content: string;
+  url: string;
+  category: string;
+  published_at: string; // ISO date string
+}
+
+export interface UploadArticleResponse {
+    article: {};
+    message: string;
+    processing_mode: 'sync' | 'async';
+}
+
 export interface ArticleChunk {
   id: string;
   article_id: string;
@@ -127,14 +141,14 @@ class ApiClient {
     await this.client.delete(`/api/v1/articles/${id}`);
   }
 
-  // TODO: Implement upload article - practice with useState for form data
-  // Hint: Use FormData or object with title, content, url, category, published_at
-  async uploadArticle(article: any, isSync: boolean = false): Promise<any> {
-    // TODO: Create form data object and handle async/sync processing
-    // const processing = isSync ? 'sync' : 'async';
-    // const response = await this.client.post(`/api/upload?processing=${processing}`, article);
-    // return response.data;
-    throw new Error('TODO: Implement uploadArticle');
+  async uploadArticle(article: UploadArticleRequest, isSync: boolean = false): Promise<UploadArticleResponse> {
+    const processing = isSync ? 'sync' : 'async';
+    const response = await this.client.post<UploadArticleResponse>(
+      `/api/upload?processing=${processing}`, 
+      article
+    );
+    
+    return response.data;
   }
 
   // Article chunks endpoints  
@@ -148,25 +162,58 @@ class ApiClient {
     return response.data;
   }
 
-  // TODO: Implement search endpoints - practice with useEffect for polling
-  // Hint: Use setInterval for polling job status in useEffect
+  // Search endpoints
   async searchImmediate(query: string, topK: number = 10, scoreThreshold: number = 0.7): Promise<SearchResponse> {
-    // TODO: Implement immediate search
-    // const response = await this.client.post('/api/v1/search/immediate', {
-    //   query, top_k: topK, score_threshold: scoreThreshold
-    // });
-    // return response.data;
-    throw new Error('TODO: Implement searchImmediate');
+    const response = await this.client.post<SearchResponse>('/api/v1/search/immediate', {
+      query,
+      top_k: topK,
+      score_threshold: scoreThreshold
+    });
+    return response.data;
   }
 
   async searchAsync(query: string, topK: number = 10, scoreThreshold: number = 0.7): Promise<{ job_id: string }> {
-    // TODO: Implement async search that returns job_id
-    throw new Error('TODO: Implement searchAsync');
+    const response = await this.client.post<{ job_id: string }>('/api/v1/search/recommendations', {
+      query,
+      top_k: topK,
+      score_threshold: scoreThreshold
+    });
+    return response.data;
   }
 
   async getSearchJobStatus(jobId: string): Promise<{ status: string, results?: SearchResponse }> {
-    // TODO: Implement job status polling
-    throw new Error('TODO: Implement getSearchJobStatus');
+    const response = await this.client.get<{ status: string, results?: SearchResponse }>(`/api/v1/search/jobs/${jobId}`);
+    return response.data;
+  }
+
+  // Chunk endpoints
+  async createChunk(chunk: { article_id: string; content: string; chunk_index: number }): Promise<ArticleChunk> {
+    const response = await this.client.post<ArticleChunk>('/api/v1/chunks', chunk);
+    return response.data;
+  }
+
+  async createChunksBatch(chunks: { article_id: string; content: string; chunk_index: number }[]): Promise<ArticleChunk[]> {
+    const response = await this.client.post<ArticleChunk[]>('/api/v1/chunks/batch', { chunks });
+    return response.data;
+  }
+
+  async getChunk(id: string): Promise<ArticleChunk> {
+    const response = await this.client.get<ArticleChunk>(`/api/v1/chunks/${id}`);
+    return response.data;
+  }
+
+  async deleteChunk(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/chunks/${id}`);
+  }
+
+  async deleteArticleChunks(articleId: string): Promise<void> {
+    await this.client.delete(`/api/v1/articles/${articleId}/chunks`);
+  }
+
+  // Search health endpoint
+  async getSearchHealth(): Promise<HealthStatus> {
+    const response = await this.client.get<HealthStatus>('/api/v1/search/health');
+    return response.data;
   }
 
   // Helper to get last request timing info
@@ -175,10 +222,8 @@ class ApiClient {
   }
 }
 
-// Create singleton instance
 export const apiClient = new ApiClient();
 
-// Extend axios config to include metadata
 declare module 'axios' {
   export interface AxiosRequestConfig {
     metadata?: {
