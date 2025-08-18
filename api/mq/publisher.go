@@ -129,7 +129,6 @@ func InitRabbitMQ() {
 
 	MQConn = conn
 	MQChannel = ch
-	log.Println("🐰 RabbitMQ connection initialized")
 }
 
 func PublishEvent(body string) error {

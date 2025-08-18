@@ -37,8 +37,6 @@ func NewConnection(cfg *config.DatabaseConfig) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Printf("✅ Database connection established (Max Connections: %d)", cfg.MaxConnections)
-
 	return &DB{Pool: pool}, nil
 }
 

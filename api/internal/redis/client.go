@@ -59,7 +59,6 @@ func InitRedis() error {
 		return fmt.Errorf("failed to ping Redis: %w", err)
 	}
 
-	log.Printf("🔴 Redis connection established at %s:%d", redisHost, redisPort)
 	return nil
 }
 
