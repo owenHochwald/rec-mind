@@ -16,11 +16,15 @@ export const ArticlesSection: React.FC = () => {
         setSelectedArticleId(selectedArticleId === articleId ? null : articleId);
     };
 
+    const refreshPage = () => {
+    window.location.reload();
+};
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-ios-title font-bold">Articles</h2>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => refreshPage()}>
                     Refresh
                 </Button>
             </div>
