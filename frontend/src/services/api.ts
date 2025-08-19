@@ -39,13 +39,23 @@ export interface ArticleChunk {
   pinecone_id?: string | null;
 }
 
+export interface ChunkMatch {
+  chunk_id: string;
+  score: number;
+  chunk_index: number;
+  content_preview: string;
+}
+
 export interface SearchResult {
   article_id: string;
   title: string;
-  content: string;
-  similarity_score: number;
-  url: string;
   category: string;
+  url: string;
+  hybrid_score: number;
+  max_similarity: number;
+  avg_similarity: number;
+  chunk_matches: ChunkMatch[];
+  matched_chunks: number;
 }
 
 export interface SearchResponse {
@@ -53,6 +63,17 @@ export interface SearchResponse {
   total_results: number;
   query: string;
   search_time_ms: number;
+}
+
+export interface SearchJobResponse {
+  job_id: string;
+  query: string;
+  recommendations: SearchResult[];
+  total_found: number;
+  processing_time: string;
+  status: string;
+  error?: string;
+  created_at: string;
 }
 
 export interface HealthStatus {
@@ -208,14 +229,14 @@ class ApiClient {
     return { chunks: [], total: 0 };
   }
 
-  // Search endpoints
-  async searchImmediate(query: string, topK: number = 10, scoreThreshold: number = 0.7): Promise<SearchResponse> {
-    const response = await this.client.post<SearchResponse>('/api/v1/search/immediate', {
+  // Search endpoints - Note: "immediate" still returns job ID for polling
+  async searchImmediate(query: string, topK: number = 10, scoreThreshold: number = 0.7): Promise<{ job_id: string }> {
+    const response = await this.client.post<{ success: boolean; data: { job_id: string } }>('/api/v1/search/immediate', {
       query,
       top_k: topK,
       score_threshold: scoreThreshold
     });
-    return response.data;
+    return response.data.data;
   }
 
   async searchAsync(query: string, topK: number = 10, scoreThreshold: number = 0.7): Promise<{ job_id: string }> {
@@ -227,9 +248,28 @@ class ApiClient {
     return response.data;
   }
 
-  async getSearchJobStatus(jobId: string): Promise<{ status: string, results?: SearchResponse }> {
-    const response = await this.client.get<{ status: string, results?: SearchResponse }>(`/api/v1/search/jobs/${jobId}`);
-    return response.data;
+  async getSearchJobStatus(jobId: string): Promise<{ status: string, results?: SearchResponse, error?: string }> {
+    const response = await this.client.get<{ success: boolean; data: SearchJobResponse }>(`/api/v1/search/jobs/${jobId}`);
+    const jobData = response.data.data;
+    
+    // Transform Go backend response to expected SearchResponse format
+    if (jobData.status === 'completed' && jobData.recommendations) {
+      const searchResponse: SearchResponse = {
+        results: jobData.recommendations,
+        total_results: jobData.total_found,
+        query: jobData.query,
+        search_time_ms: parseFloat(jobData.processing_time.replace('s', '')) * 1000
+      };
+      return {
+        status: jobData.status,
+        results: searchResponse
+      };
+    }
+    
+    return {
+      status: jobData.status,
+      error: jobData.error
+    };
   }
 
   // Chunk endpoints
