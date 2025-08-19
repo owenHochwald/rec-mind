@@ -39,9 +39,14 @@ export const SearchSection: React.FC = () => {
     };
 
     const isSearching = searchImmediateMutation.isPending || searchAsyncMutation.isPending;
-    const immediateResults = searchImmediateMutation.data;
-    const asyncResults = jobStatusQuery.data?.status === 'completed' ? jobStatusQuery.data.results : null;
-    const searchResults = immediateResults || asyncResults;
+    // Both immediate and async return job_id, so we always poll for results
+    const immediateJobId = searchImmediateMutation.data?.job_id;
+    const asyncJobId = searchAsyncMutation.data?.job_id;
+    const activeJobId = immediateJobId || asyncJobId || jobId;
+    
+    // Get results from job polling (works for both immediate and async)
+    const pollingQuery = useSearchJobStatus(activeJobId || '');
+    const searchResults = pollingQuery.data?.status === 'completed' ? pollingQuery.data.results : null;
 
     return (
         <div className="space-y-6">
@@ -124,19 +129,22 @@ export const SearchSection: React.FC = () => {
                             {isSearching ? 'Searching...' : 'Search'}
                         </Button>
 
-                        {/* Job Status for Async Search */}
-                        {jobId && searchMode === 'async' && (
+                        {/* Job Status for Active Search */}
+                        {activeJobId && (
                             <div className="bg-muted/30 rounded-md p-3">
                                 <div className="flex items-center space-x-2 mb-2">
                                     <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
                                     <span className="text-sm font-medium">Job Status</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground">Job ID: {jobId}</p>
+                                <p className="text-xs text-muted-foreground">Job ID: {activeJobId}</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Status: {jobStatusQuery.data?.status || 'pending'}
+                                    Status: {pollingQuery.data?.status || 'pending'}
                                 </p>
-                                {jobStatusQuery.data?.status === 'completed' && (
+                                {pollingQuery.data?.status === 'completed' && (
                                     <p className="text-xs text-accent-green">Search completed!</p>
+                                )}
+                                {pollingQuery.data?.error && (
+                                    <p className="text-xs text-red-500">Error: {pollingQuery.data.error}</p>
                                 )}
                             </div>
                         )}
@@ -167,16 +175,32 @@ export const SearchSection: React.FC = () => {
                                                 {result.category}
                                             </span>
                                             <span className="text-xs bg-accent-green/10 text-accent-green px-2 py-1 rounded">
-                                                {(result.similarity_score * 100).toFixed(1)}% match
+                                                {(result.hybrid_score * 100).toFixed(1)}% match
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                        {result.content.length > 200 
-                                            ? `${result.content.substring(0, 200)}...` 
-                                            : result.content
-                                        }
-                                    </p>
+                                    <div className="text-sm text-muted-foreground mb-2">
+                                        {result.chunk_matches && result.chunk_matches.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {result.chunk_matches.slice(0, 2).map((chunk, idx) => (
+                                                    <div key={chunk.chunk_id} className="bg-muted/20 p-2 rounded text-xs">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="font-medium">Chunk {chunk.chunk_index + 1}</span>
+                                                            <span className="text-accent-green">{(chunk.score * 100).toFixed(1)}%</span>
+                                                        </div>
+                                                        <p>{chunk.content_preview}</p>
+                                                    </div>
+                                                ))}
+                                                {result.chunk_matches.length > 2 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        +{result.chunk_matches.length - 2} more chunks matched
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p>No content preview available</p>
+                                        )}
+                                    </div>
                                     <a 
                                         href={result.url} 
                                         target="_blank" 
@@ -236,7 +260,7 @@ export const SearchSection: React.FC = () => {
                                 topK,
                                 scoreThreshold,
                                 searchMode,
-                                jobId
+                                activeJobId
                             }, null, 2)}
                         </pre>
                     </div>
@@ -272,15 +296,15 @@ export const SearchSection: React.FC = () => {
                     </div>
 
                     {/* Job Polling Status */}
-                    {jobId && (
+                    {activeJobId && (
                         <div>
                             <h4 className="font-medium mb-2">Job Polling Details</h4>
                             <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-32">
                                 {JSON.stringify({
-                                    jobId,
-                                    status: jobStatusQuery.data?.status || 'pending',
-                                    isPolling: jobStatusQuery.isFetching,
-                                    error: jobStatusQuery.error?.message
+                                    activeJobId,
+                                    status: pollingQuery.data?.status || 'pending',
+                                    isPolling: pollingQuery.isFetching,
+                                    error: pollingQuery.error?.message
                                 }, null, 2)}
                             </pre>
                         </div>
