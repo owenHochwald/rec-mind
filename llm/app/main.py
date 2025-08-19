@@ -19,7 +19,7 @@ from .chunking import get_chunking_service
 from .database import get_database_service
 from .mq_consumer import get_article_consumer, start_article_processing
 from .query_search_consumer import get_query_search_consumer, start_query_search_processing
-from .routers import health, vectordb, articles, text
+from .routers import health, vectordb, articles, text, embeddings
 
 # Configure structured logging
 structlog.configure(
@@ -130,6 +130,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(vectordb.router, tags=["vectordb"])
 app.include_router(articles.router, tags=["articles"])
 app.include_router(text.router, tags=["text"])
+app.include_router(embeddings.router, tags=["embeddings"])
 
 
 # Request ID middleware
