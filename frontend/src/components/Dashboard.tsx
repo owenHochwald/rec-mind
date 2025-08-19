@@ -5,12 +5,11 @@ import { HealthSection } from './HealthSection';
 import { ArticlesSection } from './ArticlesSection';
 import { UploadSection } from './UploadSection';
 import { SearchSection } from './SearchSection';
+import { useApiTiming } from '../hooks/useApiTiming';
 
 const Dashboard: React.FC = () => {
     const [activeSection, setActiveSection] = useState<string>('articles');
-    // 
-    // You can also access request timing data from the API client:
-    // apiClient.getLastRequestTiming();
+    const lastTiming = useApiTiming();
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -27,10 +26,19 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-1 rounded-ios">
-                            {/* TODO: Display last request timing */}
-                            Last Request: -- ms
-                        </div>
+                        {lastTiming && (
+                            <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-1 rounded-ios">
+                                <div className="flex items-center space-x-2">
+                                    <span className="font-medium">{lastTiming.description}:</span>
+                                    <span className="text-accent-green">{Math.round(lastTiming.duration)}ms</span>
+                                </div>
+                            </div>
+                        )}
+                        {!lastTiming && (
+                            <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-1 rounded-ios">
+                                Last Request: --
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
