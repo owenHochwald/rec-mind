@@ -117,6 +117,8 @@ export interface ApiRequestTiming {
   duration: number;
   url: string;
   method: string;
+  description: string;
+  timestamp: number;
 }
 
 class ApiClient {
@@ -142,14 +144,20 @@ class ApiClient {
       (response: AxiosResponse) => {
         const endTime = performance.now();
         const startTime = response.config.metadata?.startTime || endTime;
+        const url = response.config.url || '';
         
-        this.lastRequestTiming = {
-          startTime,
-          endTime,
-          duration: endTime - startTime,
-          url: response.config.url || '',
-          method: response.config.method?.toUpperCase() || 'GET'
-        };
+        // Skip health check requests
+        if (!url.includes('/health')) {
+          this.lastRequestTiming = {
+            startTime,
+            endTime,
+            duration: endTime - startTime,
+            url,
+            method: response.config.method?.toUpperCase() || 'GET',
+            description: this.getRequestDescription(url, response.config.method?.toUpperCase() || 'GET'),
+            timestamp: Date.now()
+          };
+        }
         
         return response;
       },
@@ -158,18 +166,61 @@ class ApiClient {
         if (error.config) {
           const endTime = performance.now();
           const startTime = error.config.metadata?.startTime || endTime;
+          const url = error.config.url || '';
           
-          this.lastRequestTiming = {
-            startTime,
-            endTime, 
-            duration: endTime - startTime,
-            url: error.config.url || '',
-            method: error.config.method?.toUpperCase() || 'GET'
-          };
+          // Skip health check requests
+          if (!url.includes('/health')) {
+            this.lastRequestTiming = {
+              startTime,
+              endTime, 
+              duration: endTime - startTime,
+              url,
+              method: error.config.method?.toUpperCase() || 'GET',
+              description: this.getRequestDescription(url, error.config.method?.toUpperCase() || 'GET'),
+              timestamp: Date.now()
+            };
+          }
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  // Convert Go duration string to milliseconds
+  private convertProcessingTimeToMs(goTimeString: string): number {
+    // Go duration formats: "1.234s", "123ms", "1m23.456s", etc.
+    if (!goTimeString) return 0;
+    
+    // Handle different time units
+    if (goTimeString.includes('ms')) {
+      return parseFloat(goTimeString.replace('ms', ''));
+    } else if (goTimeString.includes('s') && !goTimeString.includes('m')) {
+      return parseFloat(goTimeString.replace('s', '')) * 1000;
+    } else if (goTimeString.includes('m')) {
+      // Handle minutes + seconds format like "1m23.456s"
+      const parts = goTimeString.split('m');
+      const minutes = parseFloat(parts[0]);
+      const seconds = parts[1] ? parseFloat(parts[1].replace('s', '')) : 0;
+      return (minutes * 60 + seconds) * 1000;
+    } else {
+      // Fallback: try to parse as number (assume milliseconds)
+      const num = parseFloat(goTimeString);
+      return isNaN(num) ? 0 : num;
+    }
+  }
+
+  // Get human-readable description of the API request
+  private getRequestDescription(url: string, method: string): string {
+    if (url.includes('/api/upload')) return 'Upload Article';
+    if (url.includes('/api/v1/search/recommendations')) return 'Start Async Search';
+    if (url.includes('/api/v1/search/immediate')) return 'Start Immediate Search';
+    if (url.includes('/api/v1/search/jobs/')) return 'Poll Search Job';
+    if (url.includes('/api/v1/articles') && method === 'GET') return 'Fetch Articles';
+    if (url.includes('/api/v1/articles') && method === 'DELETE') return 'Delete Article';
+    if (url.includes('/chunks') && method === 'GET') return 'Load Chunks';
+    if (url.includes('/chunks') && method === 'POST') return 'Create Chunks';
+    if (url.includes('/chunks') && method === 'DELETE') return 'Delete Chunks';
+    return `${method} Request`;
   }
 
   // Health check
@@ -258,7 +309,7 @@ class ApiClient {
         results: jobData.recommendations,
         total_results: jobData.total_found,
         query: jobData.query,
-        search_time_ms: parseFloat(jobData.processing_time.replace('s', '')) * 1000
+        search_time_ms: this.convertProcessingTimeToMs(jobData.processing_time)
       };
       return {
         status: jobData.status,
