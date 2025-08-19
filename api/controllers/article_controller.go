@@ -47,7 +47,7 @@ func UploadArticle(articleService *services.ArticleService) gin.HandlerFunc {
 			response.CreatedWithMessage(c, data, "Article created with embeddings")
 
 		default:
-			article, err := articleService.CreateArticleWithAsyncEmbedding(ctx, &req)
+			article, err := articleService.CreateArticleWithChunking(ctx, &req)
 			if err != nil {
 				response.InternalServerError(c, "Failed to create article")
 				return
