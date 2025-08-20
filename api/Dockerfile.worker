@@ -1,0 +1,53 @@
+# Multi-stage build for Go Query RAG Worker
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the worker application
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o query-rag-worker \
+    ./cmd/query_rag_worker/main.go
+
+# Production stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -g 1001 -S worker && \
+    adduser -u 1001 -S worker -G worker
+
+# Set working directory
+WORKDIR /app
+
+# Copy binary from builder stage
+COPY --from=builder /build/query-rag-worker .
+
+# Change ownership to non-root user
+RUN chown -R worker:worker /app
+
+# Switch to non-root user
+USER worker
+
+# Health check (simple process check since workers don't have HTTP endpoints)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep -f query-rag-worker || exit 1
+
+# Run the worker application
+CMD ["./query-rag-worker"]
