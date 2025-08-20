@@ -66,6 +66,7 @@ RecMind is a production-ready distributed semantic search system designed to dem
 ![](public/architecture.svg)
 
 
+
 **System Flows:**
 
 **Article Upload & Processing:**
