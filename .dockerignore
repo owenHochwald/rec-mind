@@ -1,0 +1,38 @@
+# Documentation
+*.md
+docs/
+
+# Development files
+.env*
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Logs
+*.log
+logs/
+
+# Infrastructure
+infra/
+
+# Public assets (not needed for backend builds)
+public/
