@@ -6,9 +6,9 @@
 <div align="center">
   <h1 align="center">RecMind</h1>
   <p align="center">
-    A distributed semantic news search system with RAG architecture
+    A private, self-hosted knowledge base system for intelligent content discovery
     <br />
-    Built with Go microservices, Python ML pipeline, and vector databases
+    Like NotebookLM, but for your personal research and reading collection
     <br />
     <br />
 
@@ -22,6 +22,8 @@
     <li>
       <a href="#about-the-project">About The Project</a>
       <ul>
+        <li><a href="#the-problem">The Problem</a></li>
+        <li><a href="#the-solution">The Solution</a></li>
         <li><a href="#built-with">Built With</a></li>
         <li><a href="#architecture">Architecture</a></li>
       </ul>
@@ -30,11 +32,11 @@
       <a href="#getting-started">Getting Started</a>
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
+        <li><a href="#quick-start">Quick Start</a></li>
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
-    <li><a href="#api-reference">API Reference</a></li>
+    <li><a href="#technical-highlights">Technical Highlights</a></li>
     <li><a href="#license">License</a></li>
   </ol>
 </details>
@@ -42,22 +44,22 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-RecMind is a production-ready distributed semantic search system designed to demonstrate modern backend architecture patterns. It processes news articles to build a knowledge base, generates vector embeddings, and provides intelligent search recommendations through a clean React dashboard interacting with a REST API with async processing and job polling.
+### The Problem
 
-### Why This Architecture?
+Ever had a vague memory of reading something perfect for your current project, but couldn't find it? You know it was about "that distributed systems thing with eventual consistency," but searching through bookmarks, notes, and browser history yields nothing useful.
 
-- **Distributed Design**: Chose microservices over monolith for service isolation, independent scaling, and technology flexibility
-- **Async Processing**: RabbitMQ-based job queues prevent blocking operations and ensure reliability
-- **Vector Search**: OpenAI embeddings + Pinecone deliver semantic understanding beyond simple keyword matching, supporting complex queries
-- **Performance First**: Redis caching and connection pooling achieve sub-500ms search responses
+**RecMind solves the "where did I see that article?" problem.**
 
-### Key Features
+### The Solution
 
-- **Semantic Search**: Query-based recommendations using vector similarity
-- **Dual Processing Modes**: Async (with polling) and immediate responses  
-- **Smart Chunking**: Optimized text splitting for better search granularity
-- **Fault Tolerance**: Circuit breakers, retry logic, graceful degradation
-- **Real-time Monitoring**: Health checks with dependency status tracking
+RecMind is a **real-time knowledge base system** that lets you build a massive personal library of completely unrelated content: tech blogs, research papers, random posts, documentation, and query it semantically to surface exactly what you need.
+
+Think of it as your private, self-hosted NotebookLM:
+- **Semantic Understanding**: Ask "microservices communication patterns" and find relevant content even if those exact words weren't used
+- **Completely Private**: Your data stays on your infrastructure
+- **Real-time Search**: Sub-600ms responses with intelligent caching
+- **Production Architecture**: Built with the same patterns used by major tech companies
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -65,46 +67,48 @@ RecMind is a production-ready distributed semantic search system designed to dem
 
 ![](public/architecture.svg)
 
+**Why This Distributed Architecture?**
 
+
+- **Message Queues**: RabbitMQ prevents blocking operations and ensures reliability—critical for user experience
+- **Microservices**: Independent scaling and technology choices (Go for performance, Python for ML)
+- **Async Processing**: Background jobs keep the UI responsive while processing heavy ML workloads
+- **Vector Search**: OpenAI embeddings + Pinecone deliver semantic understanding that keyword search can't match
+- **Multi-layer Caching**: Redis + connection pooling achieve enterprise-level performance
 
 **System Flows:**
 
-**Article Upload & Processing:**
-1. React Dashboard → Go API `/api/upload` → PostgreSQL (store article metadata)
-2. Go API → RabbitMQ `article_processing` queue → Python ML Service consumes job
-3. Python ML → OpenAI API (generate embeddings) → Pinecone (store vectors with metadata)
-4. Success/error status → Redis cache → React Dashboard updates via polling
+**Content Processing:**
+1. Upload article → Go API → PostgreSQL (metadata) → RabbitMQ job queue
+2. Python ML service → OpenAI embeddings → Pinecone vector storage
+3. Real-time status updates via Redis → React dashboard
 
-**Search Query Processing:**
-1. React Dashboard search → Go API `/api/v1/search/recommendations` → Create job in Redis
-2. Go API → RabbitMQ `query_search_jobs` queue → Query RAG Worker consumes
-3. Query RAG Worker → Python ML Service `/search/query` → OpenAI (query embedding)
-4. Python ML → Pinecone vector search → Return similar chunks with scores
-5. Query RAG Worker → PostgreSQL (enrich with article metadata) → Aggregate by article
-6. Query RAG Worker → Redis (cache results) → Update job status → React polls for results
-7. React Dashboard displays ranked articles with similarity scores and request timings
+**Intelligent Search:**
+1. Semantic query → Go API → RabbitMQ → Query worker
+2. Query worker → Python ML → OpenAI embedding → Pinecone similarity search
+3. Results aggregation → PostgreSQL enrichment → Redis caching → UI updates
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Built With
 
 **Frontend:**
-* [![React][React.js]][React-url] - Interactive dashboard for article services
+* [![React][React.js]][React-url] - Modern dashboard with real-time updates
 
 **Backend Services:**
-* [![Go][Go.dev]][Go-url] - API server, workers, and distributed processing
-* [![Python][Python.org]][Python-url] - ML service with FastAPI and embeddings
-* [![PostgreSQL][PostgreSQL.org]][PostgreSQL-url] - Primary database 
+* [![Go][Go.dev]][Go-url] - High-performance API server and workers
+* [![Python][Python.org]][Python-url] - ML service with LangChain and FastAPI
+* [![PostgreSQL][PostgreSQL.org]][PostgreSQL-url] - Primary database with full-text search
 * [![Redis][Redis.io]][Redis-url] - Caching and job status tracking
 * [![RabbitMQ][RabbitMQ.com]][RabbitMQ-url] - Async message queue and job processing
 
 **AI & Vector Search:**
-* [![OpenAI][OpenAI.com]][OpenAI-url] - text-embedding-3-small model
-* [![Pinecone][Pinecone.io]][Pinecone-url] - Vector database for semantic search
+* [![OpenAI][OpenAI.com]][OpenAI-url] - text-embedding-3-small for semantic understanding
+* [![Pinecone][Pinecone.io]][Pinecone-url] - Vector database for similarity search
 
 **Infrastructure:**
-* [![Docker][Docker.com]][Docker-url] - Containerized microservices
-* [![Gin][Gin-Gonic.com]][Gin-url] - High-performance Go web framework
+* [![Docker][Docker.com]][Docker-url] - Complete containerized stack (6 services)
+* [![Gin][Gin-Gonic.com]][Gin-url] - Production-grade Go web framework
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -113,12 +117,11 @@ RecMind is a production-ready distributed semantic search system designed to dem
 
 ### Prerequisites
 
-* **Go 1.21+** for API server and workers (for manual setup)
-* **Python 3.9+** for ML service (for manual setup)
-* **Docker & Docker Compose** for containerized deployment
+* **Docker & Docker Compose** (recommended)
 * **API Keys**: OpenAI and Pinecone accounts
+* **Go 1.21+** and **Python 3.9+** (for manual setup)
 
-### Quick Start with Docker (Recommended)
+### Quick Start
 
 1. **Clone and configure**
    ```bash
@@ -133,131 +136,83 @@ RecMind is a production-ready distributed semantic search system designed to dem
    PINECONE_INDEX_NAME=your_pinecone_index_name
    ```
 
-3. **Launch the complete stack**
+3. **Launch the complete stack (6 services)**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
-4. **Access the application**
+4. **Start exploring**
    - **React Dashboard**: http://localhost:3000
    - **API Documentation**: http://localhost:8080/swagger/index.html
-   - **RabbitMQ Management**: http://localhost:15672 (myuser/secret)
+   - **System Health**: http://localhost:8080/health
 
-5. **Check system health**
-   ```bash
-   docker-compose ps
-   curl http://localhost:8080/health
-   ```
-
-### Manual Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/owenhochwald/rec-mind.git
-   cd rec-mind
-   ```
-
-2. **Start infrastructure services**
-   ```bash
-   cd infra
-   docker-compose up -d  # PostgreSQL, Redis, RabbitMQ
-   ```
-
-3. **Configure environment variables**
-   ```bash
-   # Go API (.env in /api directory)
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USER=postgres
-   DB_PASSWORD=password
-   DB_NAME=rec_mind
-   REDIS_URL=redis://localhost:6379
-   RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-   PYTHON_ML_SERVICE_URL=http://localhost:8000
-
-   # Python ML (.env in /llm directory)
-   OPENAI_API_KEY=your_openai_api_key
-   PINECONE_API_KEY=your_pinecone_api_key
-   PINECONE_INDEX_NAME=your_index_name
-   RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-   ```
-
-4. **Install Python dependencies**
-   ```bash
-   cd llm
-   pip3 install -r requirements.txt
-   ```
-
-5. **Install React frontend dependencies**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-6. **Start the services**
-   ```bash
-   # Terminal 1: Python ML Service
-   cd llm && python3 -m uvicorn app.main:app --reload
-
-   # Terminal 2: Go API Server  
-   cd api && go run server/main.go
-
-   # Terminal 3: Query RAG Worker
-   cd api && go run cmd/query_rag_worker/main.go
-
-   # Terminal 4: React Frontend
-   cd frontend && npm start
-   ```
-
-7. **Access the application**
-   ```bash
-   open http://localhost:3000                     # React Dashboard
-   open http://localhost:8080/swagger/index.html  # API Documentation
-   curl http://localhost:8080/health              # Health Check
-   ```
+5. **Upload your first article and search!**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-### React Dashboard (Recommended)
-The easiest way to interact with RecMind is through the React dashboard at `http://localhost:3000`:
+### Real-World Scenarios
 
-- **Upload Articles**: Interactive form with real-time processing status
-- **Search Articles**: Query input with live results and similarity scores  
-- **Manage Articles**: Browse, filter, and delete articles with pagination
-- **System Health**: Monitor all services and their status
-- **Request Timing**: View API call durations and performance metrics
+**Research Repository**
+Upload papers, blogs, and documentation. Query "distributed consensus algorithms" to surface everything relevant, even if the exact phrase wasn't used.
 
-_Complete API documentation: [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)_
+**Idea Connection**
+Save random articles and posts. Later, search "event sourcing patterns" and rediscover that perfect Martin Fowler post you read months ago.
+
+**Learning Enhancement**
+Build a personal knowledge base as you learn. Query concepts to see how different sources explain the same ideas.
+
+### Using the Dashboard
+
+The React dashboard at `http://localhost:3000` provides:
+
+- **Smart Upload**: Add articles with real-time processing status
+- **Semantic Search**: Query your knowledge base with natural language
+- **Content Management**: Browse, filter, and organize your articles
+- **Performance Monitoring**: View response times and system health
+- **Relevance Scoring**: See how closely results match your query
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- API REFERENCE -->
-## API Reference
+## Technical Highlights
 
-### Core Endpoints
-- `GET /health` - System health with dependency status
-- `POST /api/upload` - Upload articles with ML processing  
-- `POST /api/v1/search/recommendations` - Query-based search (async)
-- `POST /api/v1/search/immediate` - Query-based search (sync)
-- `GET /api/v1/search/jobs/:job_id` - Check search job status
+### Distributed Systems Patterns
 
-### Article Management
-- `GET /api/v1/articles` - List articles with pagination
-- `GET /api/v1/articles/:id` - Get article details
-- `DELETE /api/v1/articles/:id` - Delete article
+- **Event-Driven Architecture**: Async processing with message queues
+- **Circuit Breakers**: Fault tolerance and graceful degradation
+- **Horizontal Scaling**: Independent service scaling based on load
+- **Observability**: Health checks and performance monitoring
+
+### Performance Engineering
+
+- **Sub-600ms Search**: Multi-layer caching and connection pooling
+- **Async Processing**: Non-blocking ML operations
+- **Batch Optimization**: Efficient vector operations and database queries
+- **Resource Management**: Connection limits and timeout handling
+
+### Production Readiness
+
+- **Containerized Deployment**: Single-command infrastructure setup
+- **Environment Configuration**: Proper secrets and config management
+- **API Documentation**: Auto-generated Swagger/OpenAPI specs
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 ### Development Commands
 ```bash
 make dev      # Run Go server without building
 make build    # Build binary  
 make test     # Run tests
-make deps     # Update dependencies
+docker compose logs -f  # View all service logs
 ```
 
+**Complete API Documentation**: [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 <!-- LICENSE -->
 ## License
