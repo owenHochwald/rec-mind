@@ -9,7 +9,7 @@ import { SearchResult } from '../services/api';
 export const SearchSection: React.FC = () => {
     const [query, setQuery] = useState('');
     const [topK, setTopK] = useState(10);
-    const [scoreThreshold, setScoreThreshold] = useState(0.7);
+    const [scoreThreshold, setScoreThreshold] = useState(0.5);
     const [searchMode, setSearchMode] = useState<'immediate' | 'async'>('immediate');
     const [jobId, setJobId] = useState<string | null>(null);
     const [selectedArticle, setSelectedArticle] = useState<SearchResult | null>(null);
