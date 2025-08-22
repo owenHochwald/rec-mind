@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 openai
-pinecone==7.1.0
+pinecone>=7.0.0,<8.0.0
 pydantic==2.5.0
 pydantic-settings
 structlog==23.2.0
@@ -9,7 +9,6 @@ httpx==0.25.2
 python-multipart
 python-dotenv
 langchain-openai
-langchain-pinecone
 langchain-core
 langchain-text-splitters
 tenacity
