@@ -18,12 +18,20 @@ func InitRabbitMQ() {
 	err := godotenv.Load()
 
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("No .env file found, using environment variables")
 	}
 	rabbitUser := os.Getenv("RABBITMQ_USER")
 	rabbitPassword := os.Getenv("RABBITMQ_PASSWORD")
+	rabbitHost := os.Getenv("RABBITMQ_HOST")
+	if rabbitHost == "" {
+		rabbitHost = "localhost"
+	}
+	rabbitPort := os.Getenv("RABBITMQ_PORT")
+	if rabbitPort == "" {
+		rabbitPort = "5672"
+	}
 
-	amqpURL := fmt.Sprintf("amqp://%s:%s@localhost:5672/", rabbitUser, rabbitPassword)
+	amqpURL := fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitUser, rabbitPassword, rabbitHost, rabbitPort)
 
 	conn, err := amqp.Dial(amqpURL)
 	

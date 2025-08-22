@@ -81,7 +81,7 @@ func (e *MLServiceError) Error() string {
 
 // NewMLClient creates a new ML service client
 func NewMLClient() *MLClient {
-	baseURL := os.Getenv("PYTHON_SERVICE_URL")
+	baseURL := os.Getenv("PYTHON_ML_SERVICE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:8000"
 	}

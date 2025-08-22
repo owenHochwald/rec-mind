@@ -156,7 +156,7 @@ type PythonHealthResponse struct {
 
 // checkPythonHealthInternal is an internal helper function to check Python service health
 func checkPythonHealthInternal() PythonHealthResponse {
-	pythonServiceURL := os.Getenv("PYTHON_SERVICE_URL")
+	pythonServiceURL := os.Getenv("PYTHON_ML_SERVICE_URL")
 	if pythonServiceURL == "" {
 		pythonServiceURL = "http://localhost:8000"
 	}
